@@ -27,10 +27,10 @@ Gemini CLI Web brings the power of Gemini AI directly to your browser with a ful
 - **Diff and status** visualization
 
 ### Command Compatibility
-- **Slash commands** (`/init`, `/theme`, `/help`, `/clear`)
-- **At-commands** (`@file`, `@dir`) for content injection
-- **Git commands** (`!git status`, `!git commit`, etc.)
-- **Regular prompts** to Gemini AI (when API key configured)
+- **Slash commands** (`/init`, `/config`, `/status`, `/theme`, `/help`, `/clear`)
+- **At-commands** (`@file`, `@dir`) for content injection with direct Gemini integration
+- **Git commands** (`!git status`, `!git commit`, `!git push`, `!git pull`, `!git clone`, etc.)
+- **Regular prompts** to Gemini AI (with API key configuration)
 
 ## 🚀 Quick Start
 
@@ -106,14 +106,21 @@ The web version uses OPFS (Origin Private File System) for storage:
 
 ### Gemini AI Integration
 
-Configure your API key in browser settings, then use natural language:
+Configure your API key, then use natural language with optional file context:
 
 ```bash
+# Configure API key (one-time setup)
+/config api-key your-gemini-api-key
+
 # Regular prompts
 Explain this code and suggest improvements
 
-# With context injection
+# With context injection  
 @src/components/ Refactor these React components for better performance
+
+# Git workflow with AI assistance
+!git status
+What should I do about these uncommitted changes?
 ```
 
 ## 🏗️ Architecture
@@ -204,13 +211,15 @@ packages/web/
 
 ## 🗺️ Roadmap
 
-### Phase 1 - MVP (Current)
+### Phase 1 - MVP (COMPLETED ✅)
 - [x] Terminal interface with xterm.js
 - [x] OPFS file system adapter
 - [x] Basic command routing
 - [x] Git integration via isomorphic-git
-- [ ] Gemini API integration
-- [ ] File import/export UI
+- [x] **Gemini API integration** ✅
+- [x] **Enhanced Git operations** (clone, push, pull, authentication) ✅
+- [x] **File filtering with .gitignore/.geminiignore** ✅
+- [x] **Comprehensive testing suite** (43+ tests) ✅
 
 ### Phase 2 - Enhanced UX
 - [ ] Theme customization dialog

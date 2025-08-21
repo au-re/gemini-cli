@@ -462,7 +462,7 @@ To get started:
     }
   }
 
-  private async handleConfig(args: string, context: CommandContext): Promise<CommandResult> {
+  private async handleConfig(args: string, _context: CommandContext): Promise<CommandResult> {
     const [subcommand, ...rest] = args.split(' ');
     
     switch (subcommand) {
