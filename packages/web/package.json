@@ -27,24 +27,25 @@
   "dependencies": {
     "@google/gemini-cli-core": "file:../core",
     "@google/genai": "1.13.0",
-    "@xterm/xterm": "^5.5.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
-    "isomorphic-git": "^1.27.1",
+    "@xterm/xterm": "^5.5.0",
+    "buffer": "^6.0.3",
     "ignore": "^7.0.0",
-    "buffer": "^6.0.3"
+    "isomorphic-git": "^1.27.1",
+    "path-browserify": "^1.0.1"
   },
   "devDependencies": {
     "@google/gemini-cli-test-utils": "file:../test-utils",
-    "@types/node": "^20.11.24",
     "@playwright/test": "^1.46.0",
+    "@types/node": "^20.11.24",
     "@vitest/ui": "^3.1.1",
     "eslint": "^9.24.0",
+    "jsdom": "^26.1.0",
     "prettier": "^3.5.3",
     "typescript": "^5.3.3",
     "vite": "^5.4.2",
-    "vitest": "^3.1.1",
-    "jsdom": "^26.1.0"
+    "vitest": "^3.1.1"
   },
   "engines": {
     "node": ">=20"
