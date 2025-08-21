@@ -252,7 +252,10 @@ export default tseslint.config(
   },
   {
     // Web package test files - more lenient rules for tests
-    files: ['packages/web/src/**/*.test.{ts,tsx}', 'packages/web/src/test/**/*.{ts,tsx}'],
+    files: [
+      'packages/web/src/**/*.test.{ts,tsx}',
+      'packages/web/src/test/**/*.{ts,tsx}',
+    ],
     languageOptions: {
       globals: {
         ...globals.browser,

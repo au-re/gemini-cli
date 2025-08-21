@@ -6,7 +6,6 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WebGeminiService } from '../platform/gemini.js';
-import { opfsAdapter } from '../platform/opfs-fs.js';
 
 // Mock @google/genai
 const mockGenerateContent = vi.fn();
@@ -47,10 +46,12 @@ vi.mock('../platform/tools.js', () => ({
         parameters: [{ name: 'param', type: 'string', required: true }],
       },
     ]),
-    executeTool: vi.fn(() => Promise.resolve({
-      success: true,
-      content: 'Tool executed successfully',
-    })),
+    executeTool: vi.fn(() =>
+      Promise.resolve({
+        success: true,
+        content: 'Tool executed successfully',
+      }),
+    ),
   },
 }));
 
@@ -60,7 +61,7 @@ describe('WebGeminiService (Enhanced)', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     service = new WebGeminiService();
-    
+
     // Reset the mock functions
     mockGenerateContent.mockReset();
     mockGenerateContentStream.mockReset();
@@ -74,13 +75,17 @@ describe('WebGeminiService (Enhanced)', () => {
     it('should validate API key format', async () => {
       await expect(service.initialize('')).rejects.toThrow('Invalid API key');
       await expect(service.initialize('short')).rejects.toThrow('too short');
-      await expect(service.initialize('invalid@key')).rejects.toThrow('invalid characters');
+      await expect(service.initialize('invalid@key')).rejects.toThrow(
+        'invalid characters',
+      );
     });
 
     it('should handle connection test failures', async () => {
       mockGenerateContent.mockRejectedValueOnce(new Error('401 Unauthorized'));
-      
-      await expect(service.initialize('invalid-api-key-12345')).rejects.toThrow();
+
+      await expect(
+        service.initialize('invalid-api-key-12345'),
+      ).rejects.toThrow();
       expect(service.isConfigured()).toBe(false);
     });
   });
@@ -88,7 +93,7 @@ describe('WebGeminiService (Enhanced)', () => {
   describe('model management', () => {
     it('should list available models', () => {
       const models = service.getAvailableModels();
-      
+
       expect(models).toContain('gemini-2.5-flash');
       expect(models).toContain('gemini-2.5-pro');
       expect(models).toContain('gemini-1.5-flash');
@@ -101,7 +106,9 @@ describe('WebGeminiService (Enhanced)', () => {
     });
 
     it('should reject invalid models', () => {
-      expect(() => service.setModel('invalid-model')).toThrow('Unsupported model');
+      expect(() => service.setModel('invalid-model')).toThrow(
+        'Unsupported model',
+      );
     });
   });
 });

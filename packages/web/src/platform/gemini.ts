@@ -7,9 +7,19 @@
 import { GoogleGenAI, FunctionCall, Part, Content } from '@google/genai';
 import { XtermHost } from '../terminal/XtermHost.js';
 import { opfsAdapter } from './opfs-fs.js';
-import { createGeminiRetrier, webRetryWithBackoff } from './retry.js';
-import { parseGeminiError, formatErrorForUser, validateApiKey, createWebGeminiError } from './errors.js';
-import { webToolRegistry, ToolCall, ToolResult, ToolExecutionContext } from './tools.js';
+import { createGeminiRetrier } from './retry.js';
+import {
+  parseGeminiError,
+  formatErrorForUser,
+  validateApiKey,
+  createWebGeminiError,
+} from './errors.js';
+import {
+  webToolRegistry,
+  ToolCall,
+  ToolResult,
+  ToolExecutionContext,
+} from './tools.js';
 
 export interface GeminiResponse {
   text: string;
@@ -21,6 +31,22 @@ export interface StreamingOptions {
   onProgress?: (chunk: string) => void;
   onToolCall?: (toolCall: ToolCall) => void;
   onToolResult?: (result: ToolResult) => void;
+}
+
+export interface RequestParams {
+  model: string;
+  contents: Array<{ role: string; parts: Array<{ text: string }> }>;
+  tools?: Array<{
+    function_declarations: Array<{
+      name: string;
+      description: string;
+      parameters: {
+        type: string;
+        properties: Record<string, { type: string; description: string }>;
+        required: string[];
+      };
+    }>;
+  }>;
 }
 
 /**
@@ -41,12 +67,16 @@ export class WebGeminiService {
     // Validate API key format
     const validation = validateApiKey(apiKey);
     if (!validation.valid) {
-      throw createWebGeminiError(`Invalid API key: ${validation.message}`, 400, false);
+      throw createWebGeminiError(
+        `Invalid API key: ${validation.message}`,
+        400,
+        false,
+      );
     }
 
     this.apiKey = apiKey;
     this.client = new GoogleGenAI({ apiKey });
-    
+
     // Test the connection with a simple request
     try {
       await this.testConnection();
@@ -71,14 +101,18 @@ export class WebGeminiService {
           model: this.model,
           contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
         });
-        
+
         if (!result.text) {
           throw createWebGeminiError('Invalid response from API', 500, true);
         }
       });
     } catch (error) {
       const parsed = parseGeminiError(error);
-      throw createWebGeminiError(parsed.message, parsed.status, parsed.retryable);
+      throw createWebGeminiError(
+        parsed.message,
+        parsed.status,
+        parsed.retryable,
+      );
     }
   }
 
@@ -91,10 +125,14 @@ export class WebGeminiService {
       workingDirectory?: string;
       terminal?: XtermHost;
       enableTools?: boolean;
-    }
+    },
   ): Promise<GeminiResponse> {
     if (!this.client) {
-      throw createWebGeminiError('Gemini client not initialized. Please configure your API key first.', 400, false);
+      throw createWebGeminiError(
+        'Gemini client not initialized. Please configure your API key first.',
+        400,
+        false,
+      );
     }
 
     try {
@@ -105,7 +143,7 @@ export class WebGeminiService {
           enhancedPrompt = `Working directory: ${context.workingDirectory}\n\n${prompt}`;
         }
 
-        const requestParams: any = {
+        const requestParams: RequestParams = {
           model: this.model,
           contents: [{ role: 'user', parts: [{ text: enhancedPrompt }] }],
         };
@@ -114,38 +152,54 @@ export class WebGeminiService {
         if (context?.enableTools) {
           const toolDefinitions = webToolRegistry.getToolDefinitions();
           if (toolDefinitions.length > 0) {
-            requestParams.tools = [{
-              function_declarations: toolDefinitions.map(tool => ({
-                name: tool.name,
-                description: tool.description,
-                parameters: {
-                  type: 'object',
-                  properties: tool.parameters.reduce((props, param) => {
-                    props[param.name] = {
-                      type: param.type,
-                      description: param.description,
-                    };
-                    return props;
-                  }, {} as any),
-                  required: tool.parameters.filter(p => p.required).map(p => p.name),
-                },
-              })),
-            }];
+            requestParams.tools = [
+              {
+                function_declarations: toolDefinitions.map((tool) => ({
+                  name: tool.name,
+                  description: tool.description,
+                  parameters: {
+                    type: 'object',
+                    properties: tool.parameters.reduce(
+                      (props, param) => {
+                        props[param.name] = {
+                          type: param.type,
+                          description: param.description,
+                        };
+                        return props;
+                      },
+                      {} as Record<
+                        string,
+                        { type: string; description: string }
+                      >,
+                    ),
+                    required: tool.parameters
+                      .filter((p) => p.required)
+                      .map((p) => p.name),
+                  },
+                })),
+              },
+            ];
           }
         }
 
         const result = await this.client!.models.generateContent(requestParams);
 
         // Handle tool calls
-        const toolCalls = this.extractToolCalls(result.candidates?.[0]?.content);
+        const toolCalls = this.extractToolCalls(
+          result.candidates?.[0]?.content,
+        );
         if (toolCalls.length > 0 && context?.enableTools) {
           const toolResults = await this.executeTools(toolCalls, {
             workingDirectory: context.workingDirectory || '/workspace',
             terminal: context.terminal,
           });
-          
+
           // Continue conversation with tool results
-          const followUpResult = await this.handleToolResults(requestParams, toolCalls, toolResults);
+          const followUpResult = await this.handleToolResults(
+            requestParams,
+            toolCalls,
+            toolResults,
+          );
           return {
             text: followUpResult.text || '',
             finishReason: followUpResult.candidates?.[0]?.finishReason,
@@ -164,7 +218,11 @@ export class WebGeminiService {
       if (context?.terminal) {
         context.terminal.print(`\n${formatted}\n`);
       }
-      throw createWebGeminiError(formatted, undefined, parseGeminiError(error).retryable);
+      throw createWebGeminiError(
+        formatted,
+        undefined,
+        parseGeminiError(error).retryable,
+      );
     }
   }
 
@@ -178,7 +236,7 @@ export class WebGeminiService {
       terminal: XtermHost;
       enableTools?: boolean;
     },
-    options?: StreamingOptions
+    options?: StreamingOptions,
   ): Promise<GeminiResponse> {
     if (!this.client) {
       throw createWebGeminiError('Gemini client not initialized', 400, false);
@@ -191,7 +249,7 @@ export class WebGeminiService {
           enhancedPrompt = `Working directory: ${context.workingDirectory}\n\n${prompt}`;
         }
 
-        const requestParams: any = {
+        const requestParams: RequestParams = {
           model: this.model,
           contents: [{ role: 'user', parts: [{ text: enhancedPrompt }] }],
         };
@@ -200,31 +258,43 @@ export class WebGeminiService {
         if (context.enableTools) {
           const toolDefinitions = webToolRegistry.getToolDefinitions();
           if (toolDefinitions.length > 0) {
-            requestParams.tools = [{
-              function_declarations: toolDefinitions.map(tool => ({
-                name: tool.name,
-                description: tool.description,
-                parameters: {
-                  type: 'object',
-                  properties: tool.parameters.reduce((props, param) => {
-                    props[param.name] = {
-                      type: param.type,
-                      description: param.description,
-                    };
-                    return props;
-                  }, {} as any),
-                  required: tool.parameters.filter(p => p.required).map(p => p.name),
-                },
-              })),
-            }];
+            requestParams.tools = [
+              {
+                function_declarations: toolDefinitions.map((tool) => ({
+                  name: tool.name,
+                  description: tool.description,
+                  parameters: {
+                    type: 'object',
+                    properties: tool.parameters.reduce(
+                      (props, param) => {
+                        props[param.name] = {
+                          type: param.type,
+                          description: param.description,
+                        };
+                        return props;
+                      },
+                      {} as Record<
+                        string,
+                        { type: string; description: string }
+                      >,
+                    ),
+                    required: tool.parameters
+                      .filter((p) => p.required)
+                      .map((p) => p.name),
+                  },
+                })),
+              },
+            ];
           }
         }
 
-        const result = await this.client!.models.generateContentStream(requestParams);
+        const result =
+          await this.client!.models.generateContentStream(requestParams);
 
         let fullText = '';
-        let lastResponse: any = null;
-        let toolCalls: ToolCall[] = [];
+        let lastResponse: { candidates?: Array<{ finishReason?: string }> } =
+          {};
+        const toolCalls: ToolCall[] = [];
 
         for await (const chunk of result) {
           const text = chunk.text;
@@ -233,32 +303,40 @@ export class WebGeminiService {
             context.terminal.print(text);
             options?.onProgress?.(text);
           }
-          
+
           // Check for tool calls in this chunk
-          const chunkToolCalls = this.extractToolCalls(chunk.candidates?.[0]?.content);
+          const chunkToolCalls = this.extractToolCalls(
+            chunk.candidates?.[0]?.content,
+          );
           if (chunkToolCalls.length > 0) {
             toolCalls.push(...chunkToolCalls);
-            chunkToolCalls.forEach(toolCall => options?.onToolCall?.(toolCall));
+            chunkToolCalls.forEach((toolCall) =>
+              options?.onToolCall?.(toolCall),
+            );
           }
-          
+
           lastResponse = chunk;
         }
 
         // Execute tools if any were called
         if (toolCalls.length > 0 && context.enableTools) {
           context.terminal.print('\n\n🛠️ Executing tools...\n');
-          
+
           const toolResults = await this.executeTools(toolCalls, {
             workingDirectory: context.workingDirectory || '/workspace',
             terminal: context.terminal,
           });
 
           // Notify about tool results
-          toolResults.forEach(result => options?.onToolResult?.(result));
+          toolResults.forEach((result) => options?.onToolResult?.(result));
 
           // Continue conversation with tool results
-          const followUpResult = await this.handleToolResults(requestParams, toolCalls, toolResults);
-          
+          const followUpResult = await this.handleToolResults(
+            requestParams,
+            toolCalls,
+            toolResults,
+          );
+
           if (followUpResult.text) {
             context.terminal.print(followUpResult.text);
             fullText += followUpResult.text;
@@ -274,7 +352,11 @@ export class WebGeminiService {
     } catch (error) {
       const formatted = formatErrorForUser(error);
       context.terminal.print(`\n${formatted}\n`);
-      throw createWebGeminiError(formatted, undefined, parseGeminiError(error).retryable);
+      throw createWebGeminiError(
+        formatted,
+        undefined,
+        parseGeminiError(error).retryable,
+      );
     }
   }
 
@@ -285,12 +367,12 @@ export class WebGeminiService {
     if (!content?.parts) return [];
 
     const toolCalls: ToolCall[] = [];
-    
+
     for (const part of content.parts) {
       if ('functionCall' in part && part.functionCall) {
         const functionCall = part.functionCall as FunctionCall;
         toolCalls.push({
-          name: functionCall.name,
+          name: functionCall.name || '',
           parameters: functionCall.args || {},
         });
       }
@@ -302,12 +384,17 @@ export class WebGeminiService {
   /**
    * Execute tool calls
    */
-  private async executeTools(toolCalls: ToolCall[], context: ToolExecutionContext): Promise<ToolResult[]> {
+  private async executeTools(
+    toolCalls: ToolCall[],
+    context: ToolExecutionContext,
+  ): Promise<ToolResult[]> {
     const results: ToolResult[] = [];
 
     for (const toolCall of toolCalls) {
       if (context.terminal) {
-        context.terminal.print(`  • ${toolCall.name}(${JSON.stringify(toolCall.parameters)})\n`);
+        context.terminal.print(
+          `  • ${toolCall.name}(${JSON.stringify(toolCall.parameters)})\n`,
+        );
       }
 
       try {
@@ -326,7 +413,7 @@ export class WebGeminiService {
           error: error instanceof Error ? error.message : String(error),
         };
         results.push(errorResult);
-        
+
         if (context.terminal) {
           context.terminal.print(`    ❌ ${errorResult.error}\n`);
         }
@@ -340,10 +427,10 @@ export class WebGeminiService {
    * Handle tool results and continue conversation
    */
   private async handleToolResults(
-    originalRequest: any,
+    originalRequest: RequestParams,
     toolCalls: ToolCall[],
-    toolResults: ToolResult[]
-  ): Promise<any> {
+    toolResults: ToolResult[],
+  ): Promise<{ text?: string; candidates?: Array<{ finishReason?: string }> }> {
     // Create function response parts
     const functionResponseParts: Part[] = toolResults.map((result, index) => ({
       functionResponse: {
@@ -361,7 +448,12 @@ export class WebGeminiService {
       ...originalRequest,
       contents: [
         ...originalRequest.contents,
-        { role: 'model', parts: toolCalls.map(call => ({ functionCall: { name: call.name, args: call.parameters } })) },
+        {
+          role: 'model',
+          parts: toolCalls.map((call) => ({
+            functionCall: { name: call.name, args: call.parameters },
+          })),
+        },
         { role: 'user', parts: functionResponseParts },
       ],
     };
@@ -378,32 +470,36 @@ export class WebGeminiService {
       workingDirectory?: string;
       terminal?: XtermHost;
       enableTools?: boolean;
-    }
+    },
   ): Promise<GeminiResponse> {
     let contextualPrompt = prompt + '\n\nFile contents:\n\n';
 
     // Add file contents to prompt with better error handling
     const maxFiles = 10;
     const filesToProcess = filePaths.slice(0, maxFiles);
-    
+
     if (filePaths.length > maxFiles) {
       contextualPrompt += `Note: Only showing first ${maxFiles} of ${filePaths.length} files.\n\n`;
     }
 
     for (const filePath of filesToProcess) {
       try {
-        const fullPath = context?.workingDirectory 
+        const fullPath = context?.workingDirectory
           ? `${context.workingDirectory}/${filePath}`.replace(/\/+/g, '/')
           : filePath;
-        
-        const content = await opfsAdapter.readFile(fullPath, { encoding: 'utf8' }) as string;
-        
+
+        const content = (await opfsAdapter.readFile(fullPath, {
+          encoding: 'utf8',
+        })) as string;
+
         // Limit content size to prevent overwhelming the API
         const maxContentLength = 10000;
-        const truncatedContent = content.length > maxContentLength 
-          ? content.substring(0, maxContentLength) + '\n\n[... content truncated ...]'
-          : content;
-          
+        const truncatedContent =
+          content.length > maxContentLength
+            ? content.substring(0, maxContentLength) +
+              '\n\n[... content truncated ...]'
+            : content;
+
         contextualPrompt += `--- ${filePath} ---\n${truncatedContent}\n\n`;
       } catch (error) {
         contextualPrompt += `--- ${filePath} ---\n[Error reading file: ${error instanceof Error ? error.message : String(error)}]\n\n`;
@@ -412,7 +508,11 @@ export class WebGeminiService {
 
     // Use streaming version if terminal is provided
     if (context?.terminal) {
-      return this.sendPromptStream(contextualPrompt, context);
+      return this.sendPromptStream(contextualPrompt, {
+        workingDirectory: context.workingDirectory,
+        terminal: context.terminal,
+        enableTools: context.enableTools,
+      });
     } else {
       return this.sendPrompt(contextualPrompt, context);
     }
@@ -431,17 +531,20 @@ export class WebGeminiService {
   async configureApiKey(apiKey: string): Promise<void> {
     // Initialize with validation and connection test
     await this.initialize(apiKey);
-    
+
     // Save to persistent storage
     try {
       await opfsAdapter.mkdir('/workspace/.gemini', { recursive: true });
-      const settings = { 
-        apiKey, 
+      const settings = {
+        apiKey,
         model: this.model,
         configured: true,
         configuredAt: new Date().toISOString(),
       };
-      await opfsAdapter.writeFile('/workspace/.gemini/settings.json', JSON.stringify(settings, null, 2));
+      await opfsAdapter.writeFile(
+        '/workspace/.gemini/settings.json',
+        JSON.stringify(settings, null, 2),
+      );
     } catch (error) {
       console.warn('Failed to save API key:', error);
       // Don't throw here - the API key is still configured in memory
@@ -453,14 +556,17 @@ export class WebGeminiService {
    */
   async loadFromStorage(): Promise<void> {
     try {
-      const settingsData = await opfsAdapter.readFile('/workspace/.gemini/settings.json', { encoding: 'utf8' }) as string;
+      const settingsData = (await opfsAdapter.readFile(
+        '/workspace/.gemini/settings.json',
+        { encoding: 'utf8' },
+      )) as string;
       const settings = JSON.parse(settingsData);
-      
+
       if (settings.apiKey) {
         // Initialize without connection test during startup (to avoid blocking)
         this.apiKey = settings.apiKey;
         this.client = new GoogleGenAI({ apiKey: settings.apiKey });
-        
+
         if (settings.model) {
           this.model = settings.model;
         }
@@ -476,7 +582,10 @@ export class WebGeminiService {
   /**
    * Test current configuration without throwing
    */
-  async testCurrentConfiguration(): Promise<{ success: boolean; error?: string }> {
+  async testCurrentConfiguration(): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     if (!this.isConfigured()) {
       return { success: false, error: 'No API key configured' };
     }
@@ -527,7 +636,7 @@ export class WebGeminiService {
       throw createWebGeminiError(`Unsupported model: ${model}`, 400, false);
     }
     this.model = model;
-    
+
     // Update stored settings if they exist
     this.updateStoredSettings({ model });
   }
@@ -535,18 +644,26 @@ export class WebGeminiService {
   /**
    * Update stored settings
    */
-  private async updateStoredSettings(updates: Partial<{ model: string; apiKey: string }>): Promise<void> {
+  private async updateStoredSettings(
+    updates: Partial<{ model: string; apiKey: string }>,
+  ): Promise<void> {
     try {
-      const settingsData = await opfsAdapter.readFile('/workspace/.gemini/settings.json', { encoding: 'utf8' }) as string;
+      const settingsData = (await opfsAdapter.readFile(
+        '/workspace/.gemini/settings.json',
+        { encoding: 'utf8' },
+      )) as string;
       const settings = JSON.parse(settingsData);
-      
+
       const updatedSettings = {
         ...settings,
         ...updates,
         updatedAt: new Date().toISOString(),
       };
-      
-      await opfsAdapter.writeFile('/workspace/.gemini/settings.json', JSON.stringify(updatedSettings, null, 2));
+
+      await opfsAdapter.writeFile(
+        '/workspace/.gemini/settings.json',
+        JSON.stringify(updatedSettings, null, 2),
+      );
     } catch {
       // Settings file doesn't exist, that's OK
     }
@@ -558,7 +675,7 @@ export class WebGeminiService {
   async clearConfiguration(): Promise<void> {
     this.client = null;
     this.apiKey = null;
-    
+
     try {
       await opfsAdapter.unlink('/workspace/.gemini/settings.json');
     } catch {
