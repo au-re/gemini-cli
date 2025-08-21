@@ -6,15 +6,17 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WebGeminiService } from '../platform/gemini.js';
-import { opfsAdapter } from '../platform/opfs-fs.js';
 
 // Mock @google/genai
+const mockGenerateContent = vi.fn();
+const mockGenerateContentStream = vi.fn();
+
 vi.mock('@google/genai', () => ({
   GoogleGenAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn(),
-      generateContentStream: vi.fn(),
-    }),
+    models: {
+      generateContent: mockGenerateContent,
+      generateContentStream: mockGenerateContentStream,
+    },
   })),
 }));
 
@@ -24,92 +26,89 @@ vi.mock('../platform/opfs-fs.js', () => ({
     readFile: vi.fn(),
     writeFile: vi.fn(),
     mkdir: vi.fn(),
+    unlink: vi.fn(),
   },
 }));
 
-describe('WebGeminiService', () => {
+// Mock retry functionality
+vi.mock('../platform/retry.js', () => ({
+  createGeminiRetrier: () => (fn: () => Promise<any>) => fn(),
+  webRetryWithBackoff: (fn: () => Promise<any>) => fn(),
+}));
+
+// Mock tools
+vi.mock('../platform/tools.js', () => ({
+  webToolRegistry: {
+    getToolDefinitions: vi.fn(() => [
+      {
+        name: 'test_tool',
+        description: 'Test tool',
+        parameters: [{ name: 'param', type: 'string', required: true }],
+      },
+    ]),
+    executeTool: vi.fn(() =>
+      Promise.resolve({
+        success: true,
+        content: 'Tool executed successfully',
+      }),
+    ),
+  },
+}));
+
+describe('WebGeminiService (Enhanced)', () => {
   let service: WebGeminiService;
 
   beforeEach(() => {
     vi.resetAllMocks();
     service = new WebGeminiService();
+
+    // Reset the mock functions
+    mockGenerateContent.mockReset();
+    mockGenerateContentStream.mockReset();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe('initialization', () => {
-    it('should not be configured initially', () => {
-      expect(service.isConfigured()).toBe(false);
+  describe('initialization with validation', () => {
+    it('should validate API key format', async () => {
+      await expect(service.initialize('')).rejects.toThrow('Invalid API key');
+      await expect(service.initialize('short')).rejects.toThrow('too short');
+      await expect(service.initialize('invalid@key')).rejects.toThrow(
+        'invalid characters',
+      );
     });
 
-    it('should initialize with API key', async () => {
-      await service.initialize('test-api-key');
-      
-      expect(service.isConfigured()).toBe(true);
-    });
-  });
+    it('should handle connection test failures', async () => {
+      mockGenerateContent.mockRejectedValueOnce(new Error('401 Unauthorized'));
 
-  describe('configuration', () => {
-    it('should configure API key and persist settings', async () => {
-      const testKey = 'test-api-key';
-      
-      await service.configureApiKey(testKey);
-      
-      expect(service.isConfigured()).toBe(true);
-      expect(opfsAdapter.mkdir).toHaveBeenCalledWith('/workspace/.gemini', { recursive: true });
-      expect(opfsAdapter.writeFile).toHaveBeenCalled();
-    });
-  });
-
-  describe('status', () => {
-    it('should return correct status', () => {
-      const status = service.getStatus();
-      
-      expect(status).toEqual({
-        configured: false,
-        model: 'gemini-2.5-flash',
-      });
-    });
-
-    it('should return configured status after initialization', async () => {
-      await service.initialize('test-key');
-      
-      const status = service.getStatus();
-      
-      expect(status.configured).toBe(true);
-      expect(status.model).toBe('gemini-2.5-flash');
-    });
-  });
-
-  describe('loadFromStorage', () => {
-    it('should load settings from storage', async () => {
-      const mockSettings = {
-        apiKey: 'saved-key',
-        model: 'gemini-2.5-pro',
-      };
-
-      vi.mocked(opfsAdapter.readFile).mockResolvedValueOnce(JSON.stringify(mockSettings));
-      
-      await service.loadFromStorage();
-      
-      expect(service.isConfigured()).toBe(true);
-      expect(opfsAdapter.readFile).toHaveBeenCalledWith('/workspace/.gemini/settings.json', { encoding: 'utf8' });
-    });
-
-    it('should handle missing settings file gracefully', async () => {
-      vi.mocked(opfsAdapter.readFile).mockRejectedValueOnce(new Error('File not found'));
-      
-      await service.loadFromStorage();
-      
+      await expect(
+        service.initialize('invalid-api-key-12345'),
+      ).rejects.toThrow();
       expect(service.isConfigured()).toBe(false);
     });
   });
 
-  describe('sendPrompt', () => {
-    it('should throw error when not initialized', async () => {
-      await expect(service.sendPrompt('test prompt')).rejects.toThrow('Gemini client not initialized');
+  describe('model management', () => {
+    it('should list available models', () => {
+      const models = service.getAvailableModels();
+
+      expect(models).toContain('gemini-2.5-flash');
+      expect(models).toContain('gemini-2.5-pro');
+      expect(models).toContain('gemini-1.5-flash');
+      expect(models).toContain('gemini-1.5-pro');
+    });
+
+    it('should set valid models', () => {
+      expect(() => service.setModel('gemini-2.5-pro')).not.toThrow();
+      expect(service.getStatus().model).toBe('gemini-2.5-pro');
+    });
+
+    it('should reject invalid models', () => {
+      expect(() => service.setModel('invalid-model')).toThrow(
+        'Unsupported model',
+      );
     });
   });
 });

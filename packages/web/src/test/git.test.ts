@@ -49,7 +49,7 @@ describe('GitService', () => {
     it('should set and get auth token', () => {
       const token = 'ghp_test_token';
       service.setAuthToken(token);
-      
+
       expect(service.getAuthToken()).toBe(token);
     });
 
@@ -61,7 +61,7 @@ describe('GitService', () => {
   describe('repository operations', () => {
     it('should initialize repository', async () => {
       await service.init('/test/repo');
-      
+
       expect(mockGit.init).toHaveBeenCalledWith({
         fs: opfsAdapter,
         dir: '/test/repo',
@@ -71,9 +71,9 @@ describe('GitService', () => {
     it('should clone repository', async () => {
       const url = 'https://github.com/user/repo.git';
       const dir = '/test/repo';
-      
+
       await service.clone(dir, url);
-      
+
       expect(mockGit.clone).toHaveBeenCalledWith({
         fs: opfsAdapter,
         http: expect.anything(),
@@ -90,9 +90,9 @@ describe('GitService', () => {
       service.setAuthToken('test-token');
       const url = 'https://github.com/user/repo.git';
       const dir = '/test/repo';
-      
+
       await service.clone(dir, url);
-      
+
       expect(mockGit.clone).toHaveBeenCalledWith({
         fs: opfsAdapter,
         http: expect.anything(),
@@ -114,11 +114,11 @@ describe('GitService', () => {
         ['file3.js', 1, 1, 0], // modified
         ['file4.js', 0, 1, 1], // added
       ];
-      
+
       mockGit.statusMatrix.mockResolvedValue(mockStatusMatrix);
-      
+
       const status = await service.status('/test/repo');
-      
+
       expect(status).toEqual([
         { file: 'file1.js', status: 'unmodified' },
         { file: 'file2.js', status: 'untracked' },
@@ -131,7 +131,7 @@ describe('GitService', () => {
   describe('commit operations', () => {
     it('should add files', async () => {
       await service.add('/test/repo', 'file.js');
-      
+
       expect(mockGit.add).toHaveBeenCalledWith({
         fs: opfsAdapter,
         dir: '/test/repo',
@@ -142,17 +142,20 @@ describe('GitService', () => {
     it('should commit with default author', async () => {
       const commitId = 'abc123';
       mockGit.commit.mockResolvedValue(commitId);
-      
+
       const result = await service.commit('/test/repo', 'Test commit');
-      
+
       expect(mockGit.commit).toHaveBeenCalledWith({
         fs: opfsAdapter,
         dir: '/test/repo',
         message: 'Test commit',
         author: { name: 'Gemini CLI Web', email: 'user@gemini-cli-web.local' },
-        committer: { name: 'Gemini CLI Web', email: 'user@gemini-cli-web.local' },
+        committer: {
+          name: 'Gemini CLI Web',
+          email: 'user@gemini-cli-web.local',
+        },
       });
-      
+
       expect(result).toBe(commitId);
     });
 
@@ -160,9 +163,9 @@ describe('GitService', () => {
       const commitId = 'abc123';
       const author = { name: 'John Doe', email: 'john@example.com' };
       mockGit.commit.mockResolvedValue(commitId);
-      
+
       await service.commit('/test/repo', 'Test commit', { author });
-      
+
       expect(mockGit.commit).toHaveBeenCalledWith({
         fs: opfsAdapter,
         dir: '/test/repo',
@@ -177,9 +180,9 @@ describe('GitService', () => {
     it('should list branches', async () => {
       const branches = ['main', 'feature/test', 'bugfix/issue'];
       mockGit.listBranches.mockResolvedValue(branches);
-      
+
       const result = await service.listBranches('/test/repo');
-      
+
       expect(result).toEqual(branches);
       expect(mockGit.listBranches).toHaveBeenCalledWith({
         fs: opfsAdapter,
@@ -190,7 +193,7 @@ describe('GitService', () => {
 
     it('should create branch', async () => {
       await service.branch('/test/repo', 'new-feature', false);
-      
+
       expect(mockGit.branch).toHaveBeenCalledWith({
         fs: opfsAdapter,
         dir: '/test/repo',
@@ -201,7 +204,7 @@ describe('GitService', () => {
 
     it('should checkout branch', async () => {
       await service.checkout('/test/repo', 'main');
-      
+
       expect(mockGit.checkout).toHaveBeenCalledWith({
         fs: opfsAdapter,
         dir: '/test/repo',
@@ -217,22 +220,38 @@ describe('GitService', () => {
           oid: 'abc123',
           commit: {
             message: 'First commit',
-            author: { name: 'John', email: 'john@test.com', timestamp: 1234567890 },
-            committer: { name: 'John', email: 'john@test.com', timestamp: 1234567890 },
+            author: {
+              name: 'John',
+              email: 'john@test.com',
+              timestamp: 1234567890,
+            },
+            committer: {
+              name: 'John',
+              email: 'john@test.com',
+              timestamp: 1234567890,
+            },
           },
         },
       ];
-      
+
       mockGit.log.mockResolvedValue(mockCommits);
-      
+
       const result = await service.log('/test/repo');
-      
+
       expect(result).toEqual([
         {
           oid: 'abc123',
           message: 'First commit',
-          author: { name: 'John', email: 'john@test.com', timestamp: 1234567890 },
-          committer: { name: 'John', email: 'john@test.com', timestamp: 1234567890 },
+          author: {
+            name: 'John',
+            email: 'john@test.com',
+            timestamp: 1234567890,
+          },
+          committer: {
+            name: 'John',
+            email: 'john@test.com',
+            timestamp: 1234567890,
+          },
         },
       ]);
     });
@@ -241,9 +260,9 @@ describe('GitService', () => {
   describe('remote operations', () => {
     it('should push to remote', async () => {
       service.setAuthToken('test-token');
-      
+
       await service.push('/test/repo');
-      
+
       expect(mockGit.push).toHaveBeenCalledWith({
         fs: opfsAdapter,
         http: expect.anything(),
@@ -256,9 +275,9 @@ describe('GitService', () => {
 
     it('should pull from remote', async () => {
       service.setAuthToken('test-token');
-      
+
       await service.pull('/test/repo');
-      
+
       expect(mockGit.pull).toHaveBeenCalledWith({
         fs: opfsAdapter,
         http: expect.anything(),
@@ -274,17 +293,17 @@ describe('GitService', () => {
   describe('repository detection', () => {
     it('should detect git repository', async () => {
       mockGit.listBranches.mockResolvedValue(['main']);
-      
+
       const isRepo = await service.isRepo('/test/repo');
-      
+
       expect(isRepo).toBe(true);
     });
 
     it('should detect non-git directory', async () => {
       mockGit.listBranches.mockRejectedValue(new Error('Not a git repository'));
-      
+
       const isRepo = await service.isRepo('/test/not-repo');
-      
+
       expect(isRepo).toBe(false);
     });
   });

@@ -30,11 +30,18 @@ describe('IgnoreService', () => {
 
   describe('filter', () => {
     it('should filter basic unwanted files', async () => {
-      vi.mocked(opfsAdapter.readFile).mockRejectedValue(new Error('File not found'));
-      
-      const files = ['src/index.js', 'node_modules/package.json', '.git/config', 'README.md'];
+      vi.mocked(opfsAdapter.readFile).mockRejectedValue(
+        new Error('File not found'),
+      );
+
+      const files = [
+        'src/index.js',
+        'node_modules/package.json',
+        '.git/config',
+        'README.md',
+      ];
       const filtered = await service.filter('/test', files);
-      
+
       expect(filtered).toEqual(['src/index.js', 'README.md']);
     });
 
@@ -46,10 +53,16 @@ describe('IgnoreService', () => {
         }
         throw new Error('File not found');
       });
-      
-      const files = ['src/index.js', 'debug.log', 'build/output.js', '.env', 'README.md'];
+
+      const files = [
+        'src/index.js',
+        'debug.log',
+        'build/output.js',
+        '.env',
+        'README.md',
+      ];
       const filtered = await service.filter('/test', files);
-      
+
       expect(filtered).toEqual(['src/index.js', 'README.md']);
     });
 
@@ -61,10 +74,15 @@ describe('IgnoreService', () => {
         }
         throw new Error('File not found');
       });
-      
-      const files = ['src/index.js', 'test/unit.js', 'app.test.js', 'README.md'];
+
+      const files = [
+        'src/index.js',
+        'test/unit.js',
+        'app.test.js',
+        'README.md',
+      ];
       const filtered = await service.filter('/test', files);
-      
+
       expect(filtered).toEqual(['src/index.js', 'README.md']);
     });
 
@@ -77,10 +95,16 @@ describe('IgnoreService', () => {
         }
         throw new Error('File not found');
       });
-      
-      const files = ['src/index.js', 'debug.log', 'build/output.js', 'test/unit.js', 'README.md'];
+
+      const files = [
+        'src/index.js',
+        'debug.log',
+        'build/output.js',
+        'test/unit.js',
+        'README.md',
+      ];
       const filtered = await service.filter('/test', files);
-      
+
       expect(filtered).toEqual(['src/index.js']);
     });
   });
@@ -94,7 +118,7 @@ describe('IgnoreService', () => {
         }
         throw new Error('File not found');
       });
-      
+
       expect(await service.isIgnored('/test', 'debug.log')).toBe(true);
       expect(await service.isIgnored('/test', 'src/index.js')).toBe(false);
       expect(await service.isIgnored('/test', 'build/output.js')).toBe(true);
@@ -103,22 +127,26 @@ describe('IgnoreService', () => {
 
   describe('cache management', () => {
     it('should cache ignore instances', async () => {
-      vi.mocked(opfsAdapter.readFile).mockRejectedValue(new Error('File not found'));
-      
+      vi.mocked(opfsAdapter.readFile).mockRejectedValue(
+        new Error('File not found'),
+      );
+
       await service.filter('/test', ['file1.js']);
       await service.filter('/test', ['file2.js']);
-      
+
       // Should only call readFile once per directory due to caching
       expect(opfsAdapter.readFile).toHaveBeenCalledTimes(2); // .gitignore and .geminiignore
     });
 
     it('should clear cache', async () => {
-      vi.mocked(opfsAdapter.readFile).mockRejectedValue(new Error('File not found'));
-      
+      vi.mocked(opfsAdapter.readFile).mockRejectedValue(
+        new Error('File not found'),
+      );
+
       await service.filter('/test', ['file1.js']);
       service.clearCache('/test');
       await service.filter('/test', ['file2.js']);
-      
+
       expect(opfsAdapter.readFile).toHaveBeenCalledTimes(4); // 2 calls each time
     });
   });
