@@ -18,6 +18,13 @@ export class GitService {
   }
 
   /**
+   * Get authentication token (returns undefined if not set)
+   */
+  getAuthToken(): string | undefined {
+    return this.authToken;
+  }
+
+  /**
    * Get authentication callback for isomorphic-git
    */
   private getAuth() {
