@@ -5,7 +5,12 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createWebToolRegistry, WebReadFileTool, WebWriteFileTool, WebListDirTool } from '../platform/web-tool-registry.js';
+import { 
+  createWebToolRegistry, 
+  WebReadFileTool, 
+  WebWriteFileTool, 
+  WebListDirTool 
+} from '../platform/web-tool-registry.js';
 import { WebConfig } from '../platform/web-config.js';
 import { WebFileSystemService } from '../platform/web-filesystem-service.js';
 import { WebWorkspaceContext } from '../platform/web-workspace-context.js';
@@ -19,6 +24,45 @@ vi.mock('../platform/opfs-fs.js', () => ({
     mkdir: vi.fn(),
     stat: vi.fn(),
   },
+}));
+
+// Mock the core package to avoid initialization issues
+vi.mock('@google/gemini-cli-core', () => ({
+  ToolRegistry: class MockToolRegistry {
+    private tools = new Map();
+    
+    registerTool(tool: any) {
+      this.tools.set(tool.name, tool);
+    }
+    
+    getAllTools() {
+      return Array.from(this.tools.values());
+    }
+    
+    getGeminiTools() {
+      return [{
+        function_declarations: Array.from(this.tools.values()).map(tool => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.schema,
+        }))
+      }];
+    }
+  },
+  BaseDeclarativeTool: class {
+    get name() { return 'base'; }
+    get description() { return ''; }
+    get schema() { return {}; }
+  },
+  BaseToolInvocation: class {
+    constructor(public params: any) {}
+    toolLocations() { return []; }
+    getDescription() { return ''; }
+    async execute() { return { llmContent: '', returnDisplay: '' }; }
+  },
+  DEFAULT_GEMINI_FLASH_MODEL: 'gemini-2.0-flash-exp',
+  sessionId: 'test-session',
+  ApprovalMode: { DEFAULT: 'default' },
 }));
 
 describe('Web Tool Registry Integration', () => {
@@ -111,7 +155,7 @@ describe('Web Tool Registry Integration', () => {
       });
 
       it('should execute successfully with mocked file system', async () => {
-        const mockReadFile = vi.mocked(fileSystemService.readFile);
+        const mockReadFile = vi.spyOn(fileSystemService, 'readFile');
         mockReadFile.mockResolvedValue('file content');
         
         const params = readFileTool.validateParams({ path: 'test.txt' });
@@ -122,6 +166,8 @@ describe('Web Tool Registry Integration', () => {
         expect(result.llmContent).toContain('File: test.txt');
         expect(result.llmContent).toContain('file content');
         expect(result.returnDisplay).toBe('Successfully read file: test.txt');
+        
+        mockReadFile.mockRestore();
       });
     });
 
@@ -149,8 +195,8 @@ describe('Web Tool Registry Integration', () => {
       });
 
       it('should execute successfully with mocked file system', async () => {
-        const mockWriteFile = vi.mocked(fileSystemService.writeFile);
-        const mockMkdir = vi.mocked(fileSystemService.mkdir);
+        const mockWriteFile = vi.spyOn(fileSystemService, 'writeFile');
+        const mockMkdir = vi.spyOn(fileSystemService, 'mkdir');
         
         mockWriteFile.mockResolvedValue();
         mockMkdir.mockResolvedValue();
@@ -162,6 +208,9 @@ describe('Web Tool Registry Integration', () => {
         
         expect(result.llmContent).toContain('Successfully wrote 11 characters to test.txt');
         expect(result.returnDisplay).toBe('File written: test.txt');
+        
+        mockWriteFile.mockRestore();
+        mockMkdir.mockRestore();
       });
     });
 
@@ -185,7 +234,7 @@ describe('Web Tool Registry Integration', () => {
       });
 
       it('should execute successfully with mocked file system', async () => {
-        const mockReaddir = vi.mocked(fileSystemService.readdir);
+        const mockReaddir = vi.spyOn(fileSystemService, 'readdir');
         mockReaddir.mockResolvedValue(['file1.txt', 'file2.js', 'subdir']);
         
         const params = listDirTool.validateParams({ path: 'test-dir' });
@@ -198,6 +247,8 @@ describe('Web Tool Registry Integration', () => {
         expect(result.llmContent).toContain('file2.js');
         expect(result.llmContent).toContain('subdir');
         expect(result.returnDisplay).toBe('Listed 3 items in test-dir');
+        
+        mockReaddir.mockRestore();
       });
     });
   });
