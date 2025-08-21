@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
 import { opfsAdapter } from './opfs-fs.js';

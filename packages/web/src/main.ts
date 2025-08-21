@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { XtermHost } from './terminal/XtermHost.js';
 import { commandRouter } from './command/Router.js';
 
