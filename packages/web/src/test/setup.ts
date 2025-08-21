@@ -32,4 +32,14 @@ if (typeof TextDecoder === 'undefined') {
 if (typeof TextDecoder === 'undefined') {
   const { TextDecoder } = await import('util');
   global.TextDecoder = TextDecoder;
-}
+(async () => {
+  if (typeof TextEncoder === 'undefined' || typeof TextDecoder === 'undefined') {
+    const util = await import('util');
+    if (typeof TextEncoder === 'undefined') {
+      global.TextEncoder = util.TextEncoder;
+    }
+    if (typeof TextDecoder === 'undefined') {
+      global.TextDecoder = util.TextDecoder;
+    }
+  }
+})();
