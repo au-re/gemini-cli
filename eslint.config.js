@@ -35,6 +35,7 @@ export default tseslint.config(
       'packages/server/dist/**',
       'packages/test-utils/dist/**',
       'packages/vscode-ide-companion/dist/**',
+      'packages/web/dist/**',
       'bundle/**',
       'package/bundle/**',
       '.integration-tests/**',
@@ -72,8 +73,9 @@ export default tseslint.config(
     },
   },
   {
-    // General overrides and rules for the project (TS/TSX files)
-    files: ['packages/*/src/**/*.{ts,tsx}'], // Target only TS/TSX in the cli package
+    // General overrides and rules for the project (TS/TSX files) - excluding web package
+    files: ['packages/*/src/**/*.{ts,tsx}'],
+    ignores: ['packages/web/src/**/*.{ts,tsx}'], // Exclude web package which has its own config
     plugins: {
       import: importPlugin,
     },
@@ -157,6 +159,111 @@ export default tseslint.config(
       'prefer-const': ['error', { destructuring: 'all' }],
       radix: 'error',
       'default-case': 'error',
+    },
+  },
+  {
+    // Web package specific config (browser environment)
+    files: ['packages/web/src/**/*.{ts,tsx}'],
+    plugins: {
+      import: importPlugin,
+    },
+    settings: {
+      'import/resolver': {
+        node: true,
+      },
+    },
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.es2021,
+      },
+    },
+    rules: {
+      // General Best Practice Rules (subset adapted for flat config)
+      '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
+      'arrow-body-style': ['error', 'as-needed'],
+      curly: ['error', 'multi-line'],
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      '@typescript-eslint/consistent-type-assertions': [
+        'error',
+        { assertionStyle: 'as' },
+      ],
+      '@typescript-eslint/explicit-member-accessibility': [
+        'error',
+        { accessibility: 'no-public' },
+      ],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-inferrable-types': [
+        'error',
+        { ignoreParameters: true, ignoreProperties: true },
+      ],
+      '@typescript-eslint/no-namespace': ['error', { allowDeclarations: true }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      'import/no-internal-modules': [
+        'error',
+        {
+          allow: [
+            'react-dom/test-utils',
+            'memfs/lib/volume.js',
+            'yargs/**',
+            'msw/node',
+            'isomorphic-git/http/web', // Allow for web HTTP implementation
+          ],
+        },
+      ],
+      'import/no-relative-packages': 'error',
+      'no-cond-assign': 'error',
+      'no-debugger': 'error',
+      'no-duplicate-case': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.name="require"]',
+          message: 'Avoid using require(). Use ES6 imports instead.',
+        },
+        {
+          selector: 'ThrowStatement > Literal:not([value=/^\\w+Error:/])',
+          message:
+            'Do not throw string literals or non-Error objects. Throw new Error("...") instead.',
+        },
+      ],
+      'no-unsafe-finally': 'error',
+      'no-unused-expressions': 'off', // Disable base rule
+      '@typescript-eslint/no-unused-expressions': [
+        // Enable TS version
+        'error',
+        { allowShortCircuit: true, allowTernary: true },
+      ],
+      'no-var': 'error',
+      'object-shorthand': 'error',
+      'one-var': ['error', 'never'],
+      'prefer-arrow-callback': 'error',
+      'prefer-const': ['error', { destructuring: 'all' }],
+      radix: 'error',
+      'default-case': 'error',
+    },
+  },
+  {
+    // Web package test files - more lenient rules for tests
+    files: ['packages/web/src/**/*.test.{ts,tsx}', 'packages/web/src/test/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node, // Tests might need Node globals for mocking
+        ...globals.es2021,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off', // Allow any in tests for mocking
+      'no-restricted-syntax': 'off', // Allow require in test setup
+      '@typescript-eslint/no-require-imports': 'off', // Allow require in test setup
     },
   },
   {

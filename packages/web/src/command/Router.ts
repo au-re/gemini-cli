@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { XtermHost } from '../terminal/XtermHost.js';
 import { gitService } from '../platform/git.js';
 import { opfsAdapter } from '../platform/opfs-fs.js';
@@ -114,7 +120,7 @@ export class CommandRouter {
               content += `--- ${file} ---\n${fileContent}\n\n`;
               filePaths.push(file);
             }
-          } catch (error) {
+          } catch (_error) {
             // Skip files that can't be read
           }
         }
@@ -209,14 +215,15 @@ export class CommandRouter {
       context.setStatus(`Running git ${gitCmd}...`);
       
       switch (gitCmd) {
-        case 'status':
+        case 'status': {
           const status = await gitService.status(context.workingDirectory);
           const statusText = status.length > 0 
             ? status.map(s => `${s.status.padEnd(10)} ${s.file}`).join('\n')
             : 'Working directory clean';
           return { type: 'message', content: `Git status:\n${statusText}` };
+        }
 
-        case 'log':
+        case 'log': {
           const depth = gitArgs.includes('--oneline') ? 10 : 5;
           const commits = await gitService.log(context.workingDirectory, { depth });
           const logText = commits.map(c => {
@@ -226,6 +233,7 @@ export class CommandRouter {
               : `commit ${c.oid}\nAuthor: ${c.author.name} <${c.author.email}>\nDate: ${date}\n\n    ${c.message}\n`;
           }).join(gitArgs.includes('--oneline') ? '\n' : '\n');
           return { type: 'message', content: `Git log:\n${logText}` };
+        }
 
         case 'branch':
           if (gitArgs.length > 0) {
@@ -247,7 +255,7 @@ export class CommandRouter {
           await gitService.checkout(context.workingDirectory, gitArgs[0]);
           return { type: 'message', content: `Switched to branch '${gitArgs[0]}'` };
 
-        case 'add':
+        case 'add': {
           if (gitArgs.length === 0) {
             return { type: 'error', content: 'Usage: !git add <file>' };
           }
@@ -264,16 +272,18 @@ export class CommandRouter {
             await gitService.add(context.workingDirectory, filepath);
             return { type: 'message', content: `Added '${filepath}' to staging area` };
           }
+        }
 
-        case 'commit':
+        case 'commit': {
           const message = gitArgs.join(' ').replace(/^-m\s*/, ''); // Remove -m flag if present
           if (!message) {
             return { type: 'error', content: 'Usage: !git commit "message" or !git commit -m "message"' };
           }
           const commitId = await gitService.commit(context.workingDirectory, message);
           return { type: 'message', content: `Created commit ${commitId.slice(0, 7)}: ${message}` };
+        }
 
-        case 'clone':
+        case 'clone': {
           if (gitArgs.length === 0) {
             return { type: 'error', content: 'Usage: !git clone <url> [directory]' };
           }
@@ -284,6 +294,7 @@ export class CommandRouter {
           context.setStatus(`Cloning ${url}...`);
           await gitService.clone(fullTargetPath, url, { depth: 1 });
           return { type: 'message', content: `Successfully cloned '${url}' to '${targetDir}'` };
+        }
 
         case 'pull':
           await gitService.pull(context.workingDirectory);
@@ -511,7 +522,7 @@ To get started:
             // Settings don't exist, start fresh
           }
           
-          (settings as any).gitToken = token;
+          (settings as Record<string, unknown>)['gitToken'] = token;
           await opfsAdapter.writeFile(settingsPath, JSON.stringify(settings, null, 2));
           
           return {
@@ -525,7 +536,7 @@ To get started:
           };
         }
 
-      case 'show':
+      case 'show': {
         const status = geminiService.getStatus();
         return {
           type: 'message',
@@ -534,6 +545,7 @@ Model: ${status.model}
 API Key: ${status.configured ? 'Configured ✓' : 'Not configured ✗'}
 Git Token: ${gitService.getAuthToken() ? 'Configured ✓' : 'Not configured ✗'}`,
         };
+      }
 
       default:
         return {

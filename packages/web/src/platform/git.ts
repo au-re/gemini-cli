@@ -1,6 +1,15 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
 import { opfsAdapter } from './opfs-fs.js';
+
+// Type alias for isomorphic-git filesystem interface
+type GitFS = NonNullable<Parameters<typeof git.clone>[0]['fs']>;
 
 /**
  * Git operations using isomorphic-git over OPFS
@@ -46,7 +55,7 @@ export class GitService {
     const { branch, depth = 1, singleBranch = true } = options;
     
     await git.clone({
-      fs: this.fs as any,
+      fs: this.fs as GitFS,
       http,
       dir,
       url,
@@ -62,7 +71,7 @@ export class GitService {
    */
   async init(dir: string): Promise<void> {
     await git.init({
-      fs: this.fs as any,
+      fs: this.fs as GitFS,
       dir,
     });
   }
@@ -70,12 +79,12 @@ export class GitService {
   /**
    * Get repository status
    */
-  async status(dir: string): Promise<{
+  async status(dir: string): Promise<Array<{
     file: string;
     status: string;
-  }[]> {
+  }>> {
     const files = await git.statusMatrix({
-      fs: this.fs as any,
+      fs: this.fs as GitFS,
       dir,
     });
 
@@ -98,7 +107,7 @@ export class GitService {
    */
   async add(dir: string, filepath: string): Promise<void> {
     await git.add({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       dir,
       filepath,
     });
@@ -109,7 +118,7 @@ export class GitService {
    */
   async remove(dir: string, filepath: string): Promise<void> {
     await git.remove({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       dir,
       filepath,
     });
@@ -125,7 +134,7 @@ export class GitService {
     const { author, committer } = options;
     
     return await git.commit({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       dir,
       message,
       author: author || { name: 'Gemini CLI Web', email: 'user@gemini-cli-web.local' },
@@ -149,7 +158,7 @@ export class GitService {
     const { depth = 10, since, ref } = options;
     
     const commits = await git.log({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       dir,
       depth,
       since,
@@ -177,7 +186,7 @@ export class GitService {
    */
   async listBranches(dir: string, remote = false): Promise<string[]> {
     return await git.listBranches({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       dir,
       remote: remote ? 'origin' : undefined,
     });
@@ -188,7 +197,7 @@ export class GitService {
    */
   async branch(dir: string, branchName: string, checkout = false): Promise<void> {
     await git.branch({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       dir,
       ref: branchName,
       checkout,
@@ -200,7 +209,7 @@ export class GitService {
    */
   async checkout(dir: string, ref: string): Promise<void> {
     await git.checkout({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       dir,
       ref,
     });
@@ -216,7 +225,7 @@ export class GitService {
     const { remote = 'origin', ref } = options;
     
     await git.fetch({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       http,
       dir,
       remote,
@@ -236,7 +245,7 @@ export class GitService {
     const { remote = 'origin', ref, author } = options;
     
     await git.pull({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       http,
       dir,
       remote,
@@ -256,7 +265,7 @@ export class GitService {
     const { remote = 'origin', ref } = options;
     
     await git.push({
-      fs: this.fs as any,
+      fs: this.fs as Parameters<typeof git.add>[0]['fs'],
       http,
       dir,
       remote,
@@ -282,7 +291,7 @@ export class GitService {
   async isRepo(dir: string): Promise<boolean> {
     try {
       await git.listBranches({
-        fs: this.fs as any,
+        fs: this.fs as Parameters<typeof git.add>[0]['fs'],
         dir,
       });
       return true;
