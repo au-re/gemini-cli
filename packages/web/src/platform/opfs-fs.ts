@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Node.js-compatible filesystem interface for use with isomorphic-git and core utilities
  */
 export interface NodeLikeFS {
@@ -64,7 +70,7 @@ export class OPFSAdapter implements NodeLikeFS {
       const name = parts[i];
       try {
         current = await current.getDirectoryHandle(name, { create });
-      } catch (error) {
+      } catch (_error) {
         if (!create) throw new Error(`Directory not found: ${parts.slice(0, i + 1).join('/')}`);
         current = await current.getDirectoryHandle(name, { create: true });
       }
@@ -123,7 +129,7 @@ export class OPFSAdapter implements NodeLikeFS {
       const handle = await this.getHandle(path, false, false) as FileSystemDirectoryHandle;
       const entries: string[] = [];
       
-      for await (const [name] of (handle as any).entries()) {
+      for await (const [name] of (handle as unknown as { entries(): AsyncIterableIterator<[string, FileSystemHandle]> }).entries()) {
         entries.push(name);
       }
       
@@ -170,7 +176,7 @@ export class OPFSAdapter implements NodeLikeFS {
           size: 0,
         };
       }
-    } catch (error) {
+    } catch (_error) {
       // Try as file if directory lookup fails
       try {
         const fileHandle = await this.getHandle(path, false, true) as FileSystemFileHandle;

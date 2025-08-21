@@ -58,7 +58,7 @@ export class WebGeminiService {
         });
 
         let fullText = '';
-        let lastResponse: any = null;
+        let lastResponse: Awaited<ReturnType<typeof result.next>>['value'] | null = null;
         for await (const chunk of result) {
           const text = chunk.text;
           if (text) {

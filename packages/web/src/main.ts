@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { XtermHost } from './terminal/XtermHost.js';
 import { commandRouter } from './command/Router.js';
 import { geminiService } from './platform/gemini.js';
@@ -112,6 +118,15 @@ export class GeminiWebApp {
           this.terminal.printMessage({
             type: 'error',
             text: result.content,
+            timestamp: Date.now(),
+          });
+          break;
+        
+        default:
+          // Handle any unexpected result types
+          this.terminal.printMessage({
+            type: 'error',
+            text: `Unknown result type: ${(result as { type: string }).type}`,
             timestamp: Date.now(),
           });
           break;
