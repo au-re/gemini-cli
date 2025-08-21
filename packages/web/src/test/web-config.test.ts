@@ -23,6 +23,16 @@ vi.mock('../platform/opfs-fs.js', () => ({
   },
 }));
 
+// Mock core package
+vi.mock('@google/gemini-cli-core', () => ({
+  ApprovalMode: { DEFAULT: 'default' },
+  DEFAULT_GEMINI_FLASH_MODEL: 'gemini-2.0-flash-exp',
+  DEFAULT_GEMINI_EMBEDDING_MODEL: 'text-embedding-004',
+  sessionId: 'test-session-id',
+  AuthType: { API_KEY: 'api-key' },
+  createContentGeneratorConfig: vi.fn((config) => config),
+}));
+
 describe('Web Config Integration', () => {
   let webConfig: WebConfig;
   let mockStorage: WebStorage;
@@ -173,6 +183,11 @@ describe('Web Config Integration', () => {
     it('should provide accessibility settings', () => {
       const accessibility = webConfig.getAccessibility();
       expect(accessibility).toHaveProperty('disableLoadingPhrases');
+    });
+
+    it('should provide session ID', () => {
+      const sessionId = webConfig.getSessionId();
+      expect(sessionId).toBe('test-session-id');
     });
   });
 });
