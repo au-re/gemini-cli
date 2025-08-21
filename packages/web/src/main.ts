@@ -1,5 +1,14 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { XtermHost } from './terminal/XtermHost.js';
 import { commandRouter } from './command/Router.js';
+import { geminiService } from './platform/gemini.js';
+import { gitService } from './platform/git.js';
+import { opfsAdapter } from './platform/opfs-fs.js';
 
 /**
  * Main application class
@@ -27,7 +36,40 @@ export class GeminiWebApp {
    * Start the application main loop
    */
   private async start(): Promise<void> {
-    this.setStatus('Ready');
+    this.setStatus('Initializing...');
+    
+    // Try to load existing configuration
+    try {
+      await geminiService.loadFromStorage();
+      
+      // Also load Git token if available
+      try {
+        const settingsData = await opfsAdapter.readFile('/workspace/.gemini/settings.json', { encoding: 'utf8' }) as string;
+        const settings = JSON.parse(settingsData);
+        if (settings.gitToken) {
+          gitService.setAuthToken(settings.gitToken);
+        }
+      } catch {
+        // Settings don't exist or don't have git token, that's OK
+      }
+      
+      const geminiConfigured = geminiService.isConfigured();
+      const gitConfigured = !!gitService.getAuthToken();
+      
+      if (geminiConfigured && gitConfigured) {
+        this.setStatus('Ready (Gemini + Git configured)');
+      } else if (geminiConfigured) {
+        this.setStatus('Ready (Gemini configured, configure Git token for private repos)');
+      } else if (gitConfigured) {
+        this.setStatus('Ready (Git configured, configure Gemini API key for AI features)');
+      } else {
+        this.setStatus('Ready (Configure API keys to get started)');
+      }
+    } catch (error) {
+      console.warn('Failed to load configuration:', error);
+      this.setStatus('Ready (Configure API keys to get started)');
+    }
+    
     this.terminal.focus();
 
     // Main input loop
@@ -66,18 +108,25 @@ export class GeminiWebApp {
           break;
         
         case 'prompt':
-          // TODO: Send to Gemini API
-          this.terminal.printMessage({
-            type: 'info',
-            text: 'Gemini integration coming soon...',
-            timestamp: Date.now(),
-          });
+          // For backward compatibility - content is already shown
+          if (result.content) {
+            this.terminal.println(result.content);
+          }
           break;
         
         case 'error':
           this.terminal.printMessage({
             type: 'error',
             text: result.content,
+            timestamp: Date.now(),
+          });
+          break;
+        
+        default:
+          // Handle any unexpected result types
+          this.terminal.printMessage({
+            type: 'error',
+            text: `Unknown result type: ${(result as { type: string }).type}`,
             timestamp: Date.now(),
           });
           break;

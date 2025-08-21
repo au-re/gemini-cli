@@ -1,4 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CommandRouter } from '../command/Router.js';
 
 // Mock the platform modules
@@ -18,6 +24,18 @@ vi.mock('../platform/git.js', () => ({
     listBranches: vi.fn(),
     add: vi.fn(),
     commit: vi.fn(),
+  },
+}));
+
+vi.mock('../platform/gemini.js', () => ({
+  geminiService: {
+    isConfigured: vi.fn().mockReturnValue(false),
+    sendPrompt: vi.fn(),
+    configureApiKey: vi.fn(),
+    getStatus: vi.fn().mockReturnValue({
+      configured: false,
+      model: 'gemini-2.5-flash',
+    }),
   },
 }));
 
@@ -68,9 +86,9 @@ describe('CommandRouter', () => {
     expect(result.content).toBe('');
   });
 
-  it('should handle regular prompts', async () => {
+  it('should handle regular prompts when not configured', async () => {
     const result = await router.route('Hello world', mockContext);
-    expect(result.type).toBe('message');
-    expect(result.content).toContain('Echo: Hello world');
+    expect(result.type).toBe('error');
+    expect(result.content).toContain('API key not configured');
   });
 });

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OPFSAdapter } from '../platform/opfs-fs.js';
 
@@ -35,7 +41,7 @@ describe('OPFSAdapter', () => {
     mockDirHandle = {
       kind: 'directory',
       getFileHandle: vi.fn().mockResolvedValue(mockFileHandle),
-      getDirectoryHandle: vi.fn().mockImplementation((name, options) => {
+      getDirectoryHandle: vi.fn().mockImplementation((name, _options) => {
         if (name === 'test.txt') {
           throw new Error('Not a directory');
         }

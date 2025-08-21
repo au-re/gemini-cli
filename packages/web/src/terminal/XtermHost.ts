@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -175,6 +181,10 @@ export class XtermHost {
       case 'error':
         this.print(`\x1b[31m${prefix}✗ ${message.text}\x1b[0m\r\n`);
         break;
+      default:
+        // Fallback for unknown message types
+        this.print(`${prefix}${message.text}\r\n`);
+        break;
     }
   }
 
@@ -251,6 +261,9 @@ export class XtermHost {
       case 'magenta': ansi += '\x1b[35m'; break;
       case 'cyan': ansi += '\x1b[36m'; break;
       case 'white': ansi += '\x1b[37m'; break;
+      default:
+        // No color specified, use default
+        break;
     }
     
     this.terminal.write(ansi + text + '\x1b[0m');
