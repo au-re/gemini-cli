@@ -26,7 +26,7 @@ export class WebGeminiService {
    */
   async initialize(apiKey: string): Promise<void> {
     this.apiKey = apiKey;
-    this.client = new GoogleGenAI(apiKey);
+    this.client = new GoogleGenAI({ apiKey });
   }
 
   /**
@@ -50,39 +50,38 @@ export class WebGeminiService {
         enhancedPrompt = `Working directory: ${context.workingDirectory}\n\n${prompt}`;
       }
 
-      // Get the model
-      const model = this.client.getGenerativeModel({ model: this.model });
-
       // Stream the response if terminal is provided
       if (context?.terminal) {
-        const result = await model.generateContentStream({
+        const result = await this.client.models.generateContentStream({
+          model: this.model,
           contents: [{ role: 'user', parts: [{ text: enhancedPrompt }] }],
         });
 
         let fullText = '';
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
+        let lastResponse: any = null;
+        for await (const chunk of result) {
+          const text = chunk.text;
           if (text) {
             fullText += text;
             context.terminal.print(text);
           }
+          lastResponse = chunk;
         }
 
-        const finalResult = await result.response;
         return {
           text: fullText,
-          finishReason: finalResult.candidates?.[0]?.finishReason,
+          finishReason: lastResponse?.candidates?.[0]?.finishReason,
         };
       } else {
         // Non-streaming response
-        const result = await model.generateContent({
+        const result = await this.client.models.generateContent({
+          model: this.model,
           contents: [{ role: 'user', parts: [{ text: enhancedPrompt }] }],
         });
 
-        const response = result.response;
         return {
-          text: response.text(),
-          finishReason: response.candidates?.[0]?.finishReason,
+          text: result.text || '',
+          finishReason: result.candidates?.[0]?.finishReason,
         };
       }
     } catch (error) {
