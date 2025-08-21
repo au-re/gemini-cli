@@ -26,5 +26,10 @@ if (typeof TextEncoder === 'undefined') {
   global.TextEncoder = require('util').TextEncoder;
 }
 if (typeof TextDecoder === 'undefined') {
-  global.TextDecoder = require('util').TextDecoder;
+  const { TextEncoder } = await import('util');
+  global.TextEncoder = TextEncoder;
+}
+if (typeof TextDecoder === 'undefined') {
+  const { TextDecoder } = await import('util');
+  global.TextDecoder = TextDecoder;
 }
