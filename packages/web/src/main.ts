@@ -21,14 +21,14 @@ export class GeminiWebApp {
   constructor() {
     const terminalContainer = document.getElementById('terminal');
     const statusLeft = document.getElementById('status-left');
-    
+
     if (!terminalContainer || !statusLeft) {
       throw new Error('Required DOM elements not found');
     }
 
     this.statusElement = statusLeft;
     this.terminal = new XtermHost(terminalContainer);
-    
+
     this.start();
   }
 
@@ -37,14 +37,17 @@ export class GeminiWebApp {
    */
   private async start(): Promise<void> {
     this.setStatus('Initializing...');
-    
+
     // Try to load existing configuration
     try {
       await geminiService.loadFromStorage();
-      
+
       // Also load Git token if available
       try {
-        const settingsData = await opfsAdapter.readFile('/workspace/.gemini/settings.json', { encoding: 'utf8' }) as string;
+        const settingsData = (await opfsAdapter.readFile(
+          '/workspace/.gemini/settings.json',
+          { encoding: 'utf8' },
+        )) as string;
         const settings = JSON.parse(settingsData);
         if (settings.gitToken) {
           gitService.setAuthToken(settings.gitToken);
@@ -52,16 +55,20 @@ export class GeminiWebApp {
       } catch {
         // Settings don't exist or don't have git token, that's OK
       }
-      
+
       const geminiConfigured = geminiService.isConfigured();
       const gitConfigured = !!gitService.getAuthToken();
-      
+
       if (geminiConfigured && gitConfigured) {
         this.setStatus('Ready (Gemini + Git configured)');
       } else if (geminiConfigured) {
-        this.setStatus('Ready (Gemini configured, configure Git token for private repos)');
+        this.setStatus(
+          'Ready (Gemini configured, configure Git token for private repos)',
+        );
       } else if (gitConfigured) {
-        this.setStatus('Ready (Git configured, configure Gemini API key for AI features)');
+        this.setStatus(
+          'Ready (Git configured, configure Gemini API key for AI features)',
+        );
       } else {
         this.setStatus('Ready (Configure API keys to get started)');
       }
@@ -69,7 +76,7 @@ export class GeminiWebApp {
       console.warn('Failed to load configuration:', error);
       this.setStatus('Ready (Configure API keys to get started)');
     }
-    
+
     this.terminal.focus();
 
     // Main input loop
@@ -106,14 +113,14 @@ export class GeminiWebApp {
             this.terminal.println(result.content);
           }
           break;
-        
+
         case 'prompt':
           // For backward compatibility - content is already shown
           if (result.content) {
             this.terminal.println(result.content);
           }
           break;
-        
+
         case 'error':
           this.terminal.printMessage({
             type: 'error',
@@ -121,7 +128,7 @@ export class GeminiWebApp {
             timestamp: Date.now(),
           });
           break;
-        
+
         default:
           // Handle any unexpected result types
           this.terminal.printMessage({

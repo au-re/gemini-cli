@@ -43,9 +43,12 @@ abstract class WebTool {
   abstract name: string;
   abstract description: string;
   abstract parameters: ToolParameter[];
-  
-  abstract execute(parameters: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult>;
-  
+
+  abstract execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult>;
+
   getDefinition(): ToolDefinition {
     return {
       name: this.name,
@@ -76,10 +79,13 @@ class ReadFileTool extends WebTool {
       required: true,
     },
   ];
-  
-  async execute(parameters: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
+
+  async execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     try {
-      const path = parameters.path as string;
+      const path = parameters['path'] as string;
       if (!path) {
         return {
           success: false,
@@ -87,10 +93,14 @@ class ReadFileTool extends WebTool {
           error: 'Path parameter is required',
         };
       }
-      
-      const fullPath = context.workingDirectory ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/') : path;
-      const content = await opfsAdapter.readFile(fullPath, { encoding: 'utf8' }) as string;
-      
+
+      const fullPath = context.workingDirectory
+        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
+        : path;
+      const content = (await opfsAdapter.readFile(fullPath, {
+        encoding: 'utf8',
+      })) as string;
+
       return {
         success: true,
         content: `File: ${path}\n\n${content}`,
@@ -125,12 +135,15 @@ class WriteFileTool extends WebTool {
       required: true,
     },
   ];
-  
-  async execute(parameters: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
+
+  async execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     try {
-      const path = parameters.path as string;
-      const content = parameters.content as string;
-      
+      const path = parameters['path'] as string;
+      const content = parameters['content'] as string;
+
       if (!path) {
         return {
           success: false,
@@ -138,7 +151,7 @@ class WriteFileTool extends WebTool {
           error: 'Path parameter is required',
         };
       }
-      
+
       if (content === undefined) {
         return {
           success: false,
@@ -146,17 +159,19 @@ class WriteFileTool extends WebTool {
           error: 'Content parameter is required',
         };
       }
-      
-      const fullPath = context.workingDirectory ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/') : path;
-      
+
+      const fullPath = context.workingDirectory
+        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
+        : path;
+
       // Ensure directory exists
       const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
       if (dirPath) {
         await opfsAdapter.mkdir(dirPath, { recursive: true });
       }
-      
+
       await opfsAdapter.writeFile(fullPath, content);
-      
+
       return {
         success: true,
         content: `Successfully wrote ${content.length} characters to ${path}`,
@@ -181,19 +196,25 @@ class ListDirectoryTool extends WebTool {
     {
       name: 'path',
       type: 'string',
-      description: 'Path to the directory to list (defaults to current directory)',
+      description:
+        'Path to the directory to list (defaults to current directory)',
       required: false,
     },
   ];
-  
-  async execute(parameters: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
+
+  async execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     try {
-      const path = (parameters.path as string) || '.';
-      const fullPath = context.workingDirectory ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/') : path;
-      
+      const path = (parameters['path'] as string) || '.';
+      const fullPath = context.workingDirectory
+        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
+        : path;
+
       const files = await opfsAdapter.readdir(fullPath);
       const fileList = files.join('\n');
-      
+
       return {
         success: true,
         content: `Directory listing for ${path}:\n\n${fileList}`,
@@ -215,32 +236,43 @@ class GitStatusTool extends WebTool {
   name = 'git_status';
   description = 'Get the current git status of the repository';
   parameters: ToolParameter[] = [];
-  
-  async execute(parameters: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
+
+  async execute(
+    _parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     try {
       const status = await gitService.status(context.workingDirectory);
-      
+
       let content = 'Git Status:\n\n';
-      
-      if (status.modified.length > 0) {
+
+      const modified = status.filter((s) => s.status === 'modified');
+      const untracked = status.filter((s) => s.status === 'untracked');
+      const staged = status.filter((s) => s.status === 'added');
+
+      if (modified.length > 0) {
         content += 'Modified files:\n';
-        status.modified.forEach(file => content += `  M ${file}\n`);
+        modified.forEach((item) => (content += `  M ${item.file}\n`));
       }
-      
-      if (status.untracked.length > 0) {
+
+      if (untracked.length > 0) {
         content += 'Untracked files:\n';
-        status.untracked.forEach(file => content += `  ?? ${file}\n`);
+        untracked.forEach((item) => (content += `  ?? ${item.file}\n`));
       }
-      
-      if (status.staged.length > 0) {
+
+      if (staged.length > 0) {
         content += 'Staged files:\n';
-        status.staged.forEach(file => content += `  A ${file}\n`);
+        staged.forEach((item) => (content += `  A ${item.file}\n`));
       }
-      
-      if (status.modified.length === 0 && status.untracked.length === 0 && status.staged.length === 0) {
+
+      if (
+        modified.length === 0 &&
+        untracked.length === 0 &&
+        staged.length === 0
+      ) {
         content += 'Working tree clean';
       }
-      
+
       return {
         success: true,
         content,
@@ -260,29 +292,32 @@ class GitStatusTool extends WebTool {
  */
 export class WebToolRegistry {
   private tools = new Map<string, WebTool>();
-  
+
   constructor() {
     this.registerDefaultTools();
   }
-  
+
   private registerDefaultTools(): void {
     this.registerTool(new ReadFileTool());
     this.registerTool(new WriteFileTool());
     this.registerTool(new ListDirectoryTool());
     this.registerTool(new GitStatusTool());
   }
-  
+
   registerTool(tool: WebTool): void {
     this.tools.set(tool.name, tool);
   }
-  
+
   getToolDefinitions(): ToolDefinition[] {
-    return Array.from(this.tools.values()).map(tool => tool.getDefinition());
+    return Array.from(this.tools.values()).map((tool) => tool.getDefinition());
   }
-  
-  async executeTool(toolCall: ToolCall, context: ToolExecutionContext): Promise<ToolResult> {
+
+  async executeTool(
+    toolCall: ToolCall,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     const tool = this.tools.get(toolCall.name);
-    
+
     if (!tool) {
       return {
         success: false,
@@ -290,7 +325,7 @@ export class WebToolRegistry {
         error: `Unknown tool: ${toolCall.name}`,
       };
     }
-    
+
     try {
       return await tool.execute(toolCall.parameters, context);
     } catch (error) {
@@ -301,7 +336,7 @@ export class WebToolRegistry {
       };
     }
   }
-  
+
   hasTool(name: string): boolean {
     return this.tools.has(name);
   }

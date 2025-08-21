@@ -1,65 +1,69 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gemini CLI Web</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            background-color: #1a1a1a;
-            color: #ffffff;
-            overflow: hidden;
-        }
-        
-        #app {
-            height: 100vh;
-            width: 100vw;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        #terminal {
-            flex: 1;
-            padding: 10px;
-        }
-        
-        #status {
-            height: 30px;
-            background-color: #333;
-            padding: 5px 10px;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-top: 1px solid #555;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        .loading {
-            display: inline-block;
-            animation: spin 1s linear infinite;
-        }
+      body {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        background-color: #1a1a1a;
+        color: #ffffff;
+        overflow: hidden;
+      }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+      #app {
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #terminal {
+        flex: 1;
+        padding: 10px;
+      }
+
+      #status {
+        height: 30px;
+        background-color: #333;
+        padding: 5px 10px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid #555;
+      }
+
+      .loading {
+        display: inline-block;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="app">
-        <div id="terminal"></div>
-        <div id="status">
-            <span id="status-left">Ready</span>
-            <span id="status-right">Gemini CLI Web v0.1.21</span>
-        </div>
+      <div id="terminal"></div>
+      <div id="status">
+        <span id="status-left">Ready</span>
+        <span id="status-right">Gemini CLI Web v0.1.21</span>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
-</body>
+  </body>
 </html>

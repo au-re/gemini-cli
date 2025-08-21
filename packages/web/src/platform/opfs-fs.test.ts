@@ -24,7 +24,7 @@ describe('OPFSAdapter', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    
+
     mockFileHandle = {
       kind: 'file',
       getFile: vi.fn().mockResolvedValue({
@@ -58,7 +58,7 @@ describe('OPFSAdapter', () => {
 
     mockRootHandle = mockDirHandle;
     mockGetDirectory.mockResolvedValue(mockRootHandle);
-    
+
     adapter = new OPFSAdapter();
   });
 
@@ -79,7 +79,9 @@ describe('OPFSAdapter', () => {
 
   it('should create directories', async () => {
     await adapter.mkdir('newdir');
-    expect(mockRootHandle.getDirectoryHandle).toHaveBeenCalledWith('newdir', { create: true });
+    expect(mockRootHandle.getDirectoryHandle).toHaveBeenCalledWith('newdir', {
+      create: true,
+    });
   });
 
   it('should get file stats', async () => {

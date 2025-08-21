@@ -25,7 +25,13 @@ export default defineConfig({
     global: 'globalThis',
   },
   optimizeDeps: {
-    include: ['isomorphic-git', '@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-web-links', 'buffer'],
+    include: [
+      'isomorphic-git',
+      '@xterm/xterm',
+      '@xterm/addon-fit',
+      '@xterm/addon-web-links',
+      'buffer',
+    ],
   },
   resolve: {
     alias: {

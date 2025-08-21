@@ -9,24 +9,28 @@ Gemini CLI Web brings the power of Gemini AI directly to your browser with a ful
 ## ✨ Features
 
 ### Terminal Interface
+
 - **Full xterm.js terminal** with proper keyboard handling and ANSI color support
 - **Command history** and tab completion
 - **Configurable themes** (dark/light modes)
 - **Loading indicators** and status updates
 
 ### File System Operations
+
 - **Origin Private File System (OPFS)** for persistent browser storage
 - **File and directory operations** (`@file`, `@dir` commands)
 - **Git-aware filtering** with `.gitignore` and `.geminiignore` support
 - **Import/export** capabilities for local file access
 
 ### Git Integration
+
 - **Full Git workflow** powered by isomorphic-git
 - **Supported operations**: clone, status, add, commit, push, pull, branch, checkout, log
 - **Authentication** via GitHub personal access tokens
 - **Diff and status** visualization
 
 ### Command Compatibility
+
 - **Slash commands** (`/init`, `/config`, `/status`, `/theme`, `/help`, `/clear`)
 - **At-commands** (`@file`, `@dir`) for content injection with direct Gemini integration
 - **Git commands** (`!git status`, `!git commit`, `!git push`, `!git pull`, `!git clone`, etc.)
@@ -37,11 +41,13 @@ Gemini CLI Web brings the power of Gemini AI directly to your browser with a ful
 ### Development
 
 1. **Install dependencies** (from repository root):
+
    ```bash
    npm ci
    ```
 
 2. **Start development server**:
+
    ```bash
    cd packages/web
    npm run dev
@@ -75,7 +81,7 @@ The built files will be in `packages/web/dist/` and can be served from any stati
 !git commit "Update documentation"
 !git push
 
-# Terminal management  
+# Terminal management
 /clear
 /help
 ```
@@ -92,6 +98,7 @@ The web version uses OPFS (Origin Private File System) for storage:
 ### Git Workflow
 
 1. **Set up authentication** (GitHub PAT recommended):
+
    ```bash
    !git clone https://github.com/user/repo.git
    ```
@@ -115,7 +122,7 @@ Configure your API key, then use natural language with optional file context:
 # Regular prompts
 Explain this code and suggest improvements
 
-# With context injection  
+# With context injection
 @src/components/ Refactor these React components for better performance
 
 # Git workflow with AI assistance
@@ -138,7 +145,7 @@ What should I do about these uncommitted changes?
 The web package provides browser-compatible implementations of:
 
 - **File system** operations via OPFS
-- **Git** operations via isomorphic-git  
+- **Git** operations via isomorphic-git
 - **Terminal** interface via xterm.js
 - **HTTP** requests via fetch API
 
@@ -157,7 +164,7 @@ The web package provides browser-compatible implementations of:
 # Development server
 npm run dev
 
-# Production build  
+# Production build
 npm run build
 
 # Run tests
@@ -189,7 +196,7 @@ packages/web/
 ### Testing
 
 - **Unit tests** with Vitest
-- **E2E tests** with Playwright  
+- **E2E tests** with Playwright
 - **Coverage reports** via c8
 - **Component testing** with jsdom
 
@@ -212,6 +219,7 @@ packages/web/
 ## 🗺️ Roadmap
 
 ### Phase 1 - MVP (COMPLETED ✅)
+
 - [x] Terminal interface with xterm.js
 - [x] OPFS file system adapter
 - [x] Basic command routing
@@ -222,13 +230,15 @@ packages/web/
 - [x] **Comprehensive testing suite** (43+ tests) ✅
 
 ### Phase 2 - Enhanced UX
+
 - [ ] Theme customization dialog
 - [ ] Visual file browser
-- [ ] Git diff visualization  
+- [ ] Git diff visualization
 - [ ] Settings persistence
 - [ ] Workspace management
 
 ### Phase 3 - Advanced Features
+
 - [ ] Multiple repository support
 - [ ] Code editor integration
 - [ ] Collaborative features

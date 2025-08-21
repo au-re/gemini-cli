@@ -16,15 +16,17 @@ export class IgnoreService {
   /**
    * Get ignore instance for a directory
    */
-  private async getIgnoreInstance(dir: string): Promise<ReturnType<typeof ignore>> {
+  private async getIgnoreInstance(
+    dir: string,
+  ): Promise<ReturnType<typeof ignore>> {
     const cacheKey = dir;
-    
+
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
     }
 
     const ig = ignore();
-    
+
     // Default ignore patterns
     ig.add([
       'node_modules/',
@@ -45,7 +47,9 @@ export class IgnoreService {
     // Load .gitignore if it exists
     try {
       const gitignorePath = `${dir}/.gitignore`;
-      const gitignoreContent = await opfsAdapter.readFile(gitignorePath, { encoding: 'utf8' }) as string;
+      const gitignoreContent = (await opfsAdapter.readFile(gitignorePath, {
+        encoding: 'utf8',
+      })) as string;
       ig.add(gitignoreContent);
     } catch {
       // .gitignore doesn't exist, that's OK
@@ -54,7 +58,10 @@ export class IgnoreService {
     // Load .geminiignore if it exists
     try {
       const geminiignorePath = `${dir}/.geminiignore`;
-      const geminiignoreContent = await opfsAdapter.readFile(geminiignorePath, { encoding: 'utf8' }) as string;
+      const geminiignoreContent = (await opfsAdapter.readFile(
+        geminiignorePath,
+        { encoding: 'utf8' },
+      )) as string;
       ig.add(geminiignoreContent);
     } catch {
       // .geminiignore doesn't exist, that's OK
@@ -69,13 +76,13 @@ export class IgnoreService {
    */
   async filter(dir: string, files: string[]): Promise<string[]> {
     const ig = await this.getIgnoreInstance(dir);
-    
-    return files.filter(file => {
+
+    return files.filter((file) => {
       // Always include dotfiles that are not in ignore patterns
       if (file.startsWith('.') && !file.includes('/')) {
         return !ig.ignores(file);
       }
-      
+
       return !ig.ignores(file);
     });
   }
