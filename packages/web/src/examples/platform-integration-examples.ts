@@ -64,12 +64,14 @@ async function toolRegistryExample() {
 
     // Execute a tool
     try {
-      const result = await toolRegistry.executeTool(
-        'read_file',
-        { path: '/workspace/example.txt' },
-        new AbortController().signal,
-      );
-      console.log('Tool result:', result);
+      const tool = toolRegistry.getTool('read_file');
+      if (tool) {
+        const result = await tool.validateBuildAndExecute(
+          { path: '/workspace/example.txt' },
+          new AbortController().signal,
+        );
+        console.log('Tool result:', result);
+      }
     } catch (error) {
       console.error('Tool execution failed:', error);
     }

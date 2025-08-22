@@ -137,13 +137,9 @@ describe('Web Tool Registry Integration', () => {
         workspaceContext,
       );
 
-      const geminiTools = registry.getGeminiTools();
-      expect(geminiTools).toBeDefined();
-      expect(geminiTools.length).toBeGreaterThan(0);
-
-      const functionDeclarations = geminiTools.flatMap((tool) =>
-        'function_declarations' in tool ? tool.function_declarations : [],
-      );
+      const functionDeclarations = registry.getFunctionDeclarations();
+      expect(functionDeclarations).toBeDefined();
+      expect(functionDeclarations.length).toBeGreaterThan(0);
 
       const toolNames = functionDeclarations.map((func) => func.name);
       expect(toolNames).toContain('read_file');

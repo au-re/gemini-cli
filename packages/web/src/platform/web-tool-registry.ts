@@ -11,7 +11,7 @@ import {
   BaseToolInvocation,
   ToolResult,
   ToolLocation,
-  WorkspaceContext,
+  Kind,
 } from '@google/gemini-cli-core';
 import { WebConfig } from './web-config.js';
 import { WebFileSystemService } from './web-filesystem-service.js';
@@ -48,8 +48,8 @@ class WebReadFileInvocation extends BaseToolInvocation<
     return `Read file: ${this.params.path}`;
   }
 
-  toolLocations(): ToolLocation[] {
-    return [{ path: this.params.path, readOnly: true }];
+  override toolLocations(): ToolLocation[] {
+    return [{ path: this.params.path }];
   }
 
   async execute(_signal: AbortSignal): Promise<ToolResult> {
@@ -63,7 +63,6 @@ class WebReadFileInvocation extends BaseToolInvocation<
       return {
         llmContent: `File: ${this.params.path}\n\n${content}`,
         returnDisplay: `Successfully read file: ${this.params.path}`,
-        content,
       };
     } catch (error) {
       return {
@@ -90,8 +89,8 @@ class WebWriteFileInvocation extends BaseToolInvocation<
     return `Write file: ${this.params.path} (${this.params.content?.length || 0} chars)`;
   }
 
-  toolLocations(): ToolLocation[] {
-    return [{ path: this.params.path, readOnly: false }];
+  override toolLocations(): ToolLocation[] {
+    return [{ path: this.params.path }];
   }
 
   async execute(_signal: AbortSignal): Promise<ToolResult> {
@@ -172,27 +171,22 @@ class WebReadFileTool extends BaseDeclarativeTool<
     private fileSystemService: WebFileSystemService,
     private workspaceContext: WebWorkspaceContext,
   ) {
-    super();
-  }
-
-  get name() {
-    return 'read_file';
-  }
-  get description() {
-    return 'Read the contents of a file';
-  }
-
-  get schema() {
-    return {
-      type: 'object' as const,
-      properties: {
-        path: {
-          type: 'string' as const,
-          description: 'Path to the file to read',
+    super(
+      'read_file',
+      'ReadFile',
+      'Read the contents of a file',
+      Kind.Read,
+      {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file to read',
+          },
         },
-      },
-      required: ['path' as const],
-    };
+        required: ['path'],
+      }
+    );
   }
 
   validateParams(params: unknown): FileOperationParams {
@@ -229,31 +223,26 @@ class WebWriteFileTool extends BaseDeclarativeTool<
     private fileSystemService: WebFileSystemService,
     private workspaceContext: WebWorkspaceContext,
   ) {
-    super();
-  }
-
-  get name() {
-    return 'write_file';
-  }
-  get description() {
-    return 'Write content to a file';
-  }
-
-  get schema() {
-    return {
-      type: 'object' as const,
-      properties: {
-        path: {
-          type: 'string' as const,
-          description: 'Path to the file to write',
+    super(
+      'write_file',
+      'WriteFile',
+      'Write content to a file',
+      Kind.Edit,
+      {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file to write',
+          },
+          content: {
+            type: 'string',
+            description: 'Content to write to the file',
+          },
         },
-        content: {
-          type: 'string' as const,
-          description: 'Content to write to the file',
-        },
-      },
-      required: ['path' as const, 'content' as const],
-    };
+        required: ['path', 'content'],
+      }
+    );
   }
 
   validateParams(params: unknown): FileOperationParams {
@@ -292,28 +281,23 @@ class WebListDirTool extends BaseDeclarativeTool<ListDirParams, ToolResult> {
     private fileSystemService: WebFileSystemService,
     private workspaceContext: WebWorkspaceContext,
   ) {
-    super();
-  }
-
-  get name() {
-    return 'list_directory';
-  }
-  get description() {
-    return 'List files and directories in a given path';
-  }
-
-  get schema() {
-    return {
-      type: 'object' as const,
-      properties: {
-        path: {
-          type: 'string' as const,
-          description:
-            'Path to the directory to list (defaults to current directory)',
+    super(
+      'list_directory',
+      'ListDirectory',
+      'List files and directories in a given path',
+      Kind.Read,
+      {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description:
+              'Path to the directory to list (defaults to current directory)',
+          },
         },
-      },
-      required: [] as const,
-    };
+        required: [],
+      }
+    );
   }
 
   validateParams(params: unknown): ListDirParams {
@@ -353,7 +337,7 @@ export function createWebToolRegistry(
     getMcpServers: () => config.getMcpServers(),
     getMcpServerCommand: () => config.getMcpServerCommand(),
     getPromptRegistry: () => config.getPromptRegistry(),
-    getWorkspaceContext: () => workspaceContext as unknown as WorkspaceContext,
+    getWorkspaceContext: () => workspaceContext as unknown as any,
   } as unknown as Config;
 
   const toolRegistry = new ToolRegistry(mockConfig);
