@@ -57,6 +57,12 @@ export class CommandRouter {
     this.commands.set('clear', this.handleClear.bind(this));
     this.commands.set('pwd', this.handlePwd.bind(this));
     this.commands.set('ls', this.handleLs.bind(this));
+    this.commands.set('mkdir', this.handleMkdir.bind(this));
+    this.commands.set('touch', this.handleTouch.bind(this));
+    this.commands.set('rm', this.handleRm.bind(this));
+    this.commands.set('rmdir', this.handleRmdir.bind(this));
+    this.commands.set('cat', this.handleCat.bind(this));
+    this.commands.set('echo', this.handleEcho.bind(this));
     this.commands.set('config', this.handleConfig.bind(this));
     this.commands.set('status', this.handleStatus.bind(this));
   }
@@ -159,6 +165,7 @@ export class CommandRouter {
               {
                 workingDirectory: context.workingDirectory,
                 terminal: context.terminal,
+                enableTools: true, // Enable tools for LLM integration
               },
             );
 
@@ -185,6 +192,7 @@ export class CommandRouter {
               {
                 workingDirectory: context.workingDirectory,
                 terminal: context.terminal,
+                enableTools: true, // Enable tools for LLM integration
               },
             );
 
@@ -450,6 +458,7 @@ export class CommandRouter {
       const response = await geminiService.sendPrompt(prompt, {
         workingDirectory: context.workingDirectory,
         terminal: context.terminal,
+        enableTools: true, // Enable tools for LLM integration
       });
 
       return {
@@ -545,6 +554,14 @@ Slash commands:
   /clear       - Clear terminal
   /pwd         - Show current directory
   /ls          - List files in current directory
+  
+File system commands:
+  /mkdir <dir> - Create directory
+  /touch <file>- Create empty file
+  /rm <file>   - Delete file
+  /rmdir <dir> - Delete directory
+  /cat <file>  - Display file contents
+  /echo <text> - Print text (use > file or >> file to write/append)
 
 At commands:
   @file        - Include file contents in prompt
@@ -595,14 +612,47 @@ To get started:
   }
 
   private async handleLs(
-    _args: string,
+    args: string,
     context: CommandContext,
   ): Promise<CommandResult> {
     try {
-      const files = await opfsAdapter.readdir(context.workingDirectory);
-      return { type: 'message', content: `Files:\n${files.join('\n')}` };
+      const pathArg = args.trim() || '.';
+      
+      // Handle current directory properly
+      const targetPath = pathArg === '.' ? context.workingDirectory : this.resolvePath(pathArg, context.workingDirectory);
+      
+      const files = await opfsAdapter.readdir(targetPath);
+      
+      if (files.length === 0) {
+        return { 
+          type: 'message', 
+          content: `Directory ${pathArg} is empty` 
+        };
+      }
+      
+      // Get file stats and format output
+      const fileInfos = [];
+      for (const file of files) {
+        try {
+          const filePath = `${targetPath}/${file}`.replace(/\/+/g, '/');
+          const stat = await opfsAdapter.stat(filePath);
+          const type = stat.isDirectory() ? '[DIR]' : '[FILE]';
+          const size = stat.isFile() ? ` (${stat.size} bytes)` : '';
+          fileInfos.push(`${type} ${file}${size}`);
+        } catch (error) {
+          fileInfos.push(`[???] ${file} (error reading stats)`);
+        }
+      }
+      
+      return { 
+        type: 'message', 
+        content: `Contents of ${pathArg}:\n${fileInfos.join('\n')}` 
+      };
     } catch (error) {
-      return { type: 'error', content: `Failed to list files: ${error}` };
+      return { 
+        type: 'error', 
+        content: `Failed to list files: ${error}` 
+      };
     }
   }
 
@@ -713,6 +763,255 @@ Model: ${status.model}
 API Key: ${status.configured ? 'Configured ✓' : 'Not configured ✗'}
 Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
     };
+  }
+
+  private async handleMkdir(
+    args: string,
+    context: CommandContext,
+  ): Promise<CommandResult> {
+    const pathArg = args.trim();
+    if (!pathArg) {
+      return {
+        type: 'error',
+        content: 'Usage: /mkdir <directory_name>',
+      };
+    }
+
+    try {
+      const fullPath = this.resolvePath(pathArg, context.workingDirectory);
+      await opfsAdapter.mkdir(fullPath, { recursive: true });
+      return {
+        type: 'message',
+        content: `Created directory: ${pathArg}`,
+      };
+    } catch (error) {
+      return {
+        type: 'error',
+        content: `Failed to create directory ${pathArg}: ${error}`,
+      };
+    }
+  }
+
+  private async handleTouch(
+    args: string,
+    context: CommandContext,
+  ): Promise<CommandResult> {
+    const pathArg = args.trim();
+    if (!pathArg) {
+      return {
+        type: 'error',
+        content: 'Usage: /touch <file_name>',
+      };
+    }
+
+    try {
+      const fullPath = this.resolvePath(pathArg, context.workingDirectory);
+      
+      // Check if file already exists
+      try {
+        await opfsAdapter.stat(fullPath);
+        return {
+          type: 'message',
+          content: `File ${pathArg} already exists`,
+        };
+      } catch {
+        // File doesn't exist, create it
+        await opfsAdapter.writeFile(fullPath, '');
+        return {
+          type: 'message',
+          content: `Created file: ${pathArg}`,
+        };
+      }
+    } catch (error) {
+      return {
+        type: 'error',
+        content: `Failed to create file ${pathArg}: ${error}`,
+      };
+    }
+  }
+
+  private async handleRm(
+    args: string,
+    context: CommandContext,
+  ): Promise<CommandResult> {
+    const pathArg = args.trim();
+    if (!pathArg) {
+      return {
+        type: 'error',
+        content: 'Usage: /rm <file_name>',
+      };
+    }
+
+    try {
+      const fullPath = this.resolvePath(pathArg, context.workingDirectory);
+      
+      // Check if it's a file
+      const stat = await opfsAdapter.stat(fullPath);
+      if (stat.isDirectory()) {
+        return {
+          type: 'error',
+          content: `${pathArg} is a directory. Use /rmdir to remove directories.`,
+        };
+      }
+
+      await opfsAdapter.unlink(fullPath);
+      return {
+        type: 'message',
+        content: `Deleted file: ${pathArg}`,
+      };
+    } catch (error) {
+      return {
+        type: 'error',
+        content: `Failed to delete file ${pathArg}: ${error}`,
+      };
+    }
+  }
+
+  private async handleRmdir(
+    args: string,
+    context: CommandContext,
+  ): Promise<CommandResult> {
+    const pathArg = args.trim();
+    if (!pathArg) {
+      return {
+        type: 'error',
+        content: 'Usage: /rmdir <directory_name>',
+      };
+    }
+
+    try {
+      const fullPath = this.resolvePath(pathArg, context.workingDirectory);
+      
+      // Check if it's a directory
+      const stat = await opfsAdapter.stat(fullPath);
+      if (stat.isFile()) {
+        return {
+          type: 'error',
+          content: `${pathArg} is a file. Use /rm to remove files.`,
+        };
+      }
+
+      await opfsAdapter.rmdir(fullPath, { recursive: false });
+      return {
+        type: 'message',
+        content: `Deleted directory: ${pathArg}`,
+      };
+    } catch (error) {
+      return {
+        type: 'error',
+        content: `Failed to delete directory ${pathArg}: ${error}`,
+      };
+    }
+  }
+
+  private async handleCat(
+    args: string,
+    context: CommandContext,
+  ): Promise<CommandResult> {
+    const pathArg = args.trim();
+    if (!pathArg) {
+      return {
+        type: 'error',
+        content: 'Usage: /cat <file_name>',
+      };
+    }
+
+    try {
+      const fullPath = this.resolvePath(pathArg, context.workingDirectory);
+      
+      // Check if it's a file
+      const stat = await opfsAdapter.stat(fullPath);
+      if (stat.isDirectory()) {
+        return {
+          type: 'error',
+          content: `${pathArg} is a directory`,
+        };
+      }
+
+      const content = (await opfsAdapter.readFile(fullPath, { encoding: 'utf8' })) as string;
+      return {
+        type: 'message',
+        content: content || '(empty file)',
+      };
+    } catch (error) {
+      return {
+        type: 'error',
+        content: `Failed to read file ${pathArg}: ${error}`,
+      };
+    }
+  }
+
+  private async handleEcho(
+    args: string,
+    context: CommandContext,
+  ): Promise<CommandResult> {
+    const parts = args.trim().split(' ');
+    
+    // Handle: /echo "content" > file
+    // Handle: /echo "content" >> file
+    // Handle: /echo "content"
+    
+    if (parts.length < 1) {
+      return {
+        type: 'error',
+        content: 'Usage: /echo <text> [> file] or /echo <text> [>> file]',
+      };
+    }
+
+    // Check if there's redirection
+    const redirectIndex = parts.findIndex(p => p === '>' || p === '>>');
+    
+    if (redirectIndex === -1) {
+      // Simple echo
+      return {
+        type: 'message',
+        content: args.trim(),
+      };
+    }
+
+    if (redirectIndex === parts.length - 1 || redirectIndex === 0) {
+      return {
+        type: 'error',
+        content: 'Usage: /echo <text> [> file] or /echo <text> [>> file]',
+      };
+    }
+
+    const content = parts.slice(0, redirectIndex).join(' ').replace(/^["']|["']$/g, '');
+    const operator = parts[redirectIndex];
+    const filename = parts.slice(redirectIndex + 1).join(' ').trim();
+
+    if (!filename) {
+      return {
+        type: 'error',
+        content: 'No filename specified after redirection',
+      };
+    }
+
+    try {
+      const fullPath = this.resolvePath(filename, context.workingDirectory);
+      
+      let finalContent = content;
+      if (operator === '>>') {
+        // Append mode
+        try {
+          const existingContent = (await opfsAdapter.readFile(fullPath, { encoding: 'utf8' })) as string;
+          finalContent = existingContent + (existingContent ? '\n' : '') + content;
+        } catch {
+          // File doesn't exist, treat as write
+        }
+      }
+      
+      await opfsAdapter.writeFile(fullPath, finalContent);
+      return {
+        type: 'message',
+        content: `${operator === '>>' ? 'Appended to' : 'Wrote to'} file: ${filename}`,
+      };
+    } catch (error) {
+      return {
+        type: 'error',
+        content: `Failed to write to file ${filename}: ${error}`,
+      };
+    }
   }
 
   /**

@@ -38,6 +38,13 @@ export class GeminiWebApp {
   private async start(): Promise<void> {
     this.setStatus('Initializing...');
 
+    // Initialize workspace directory
+    try {
+      await opfsAdapter.mkdir(this.workingDirectory, { recursive: true });
+    } catch (error) {
+      console.warn('Failed to create workspace directory:', error);
+    }
+
     // Try to load existing configuration
     try {
       await geminiService.loadFromStorage();
