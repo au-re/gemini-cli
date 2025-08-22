@@ -48,7 +48,7 @@ describe('Web Tool Registry', () => {
         'write_file',
         'list_directory',
         'create_directory',
-        'delete_file', 
+        'delete_file',
         'delete_directory',
         'git_status',
       ]);

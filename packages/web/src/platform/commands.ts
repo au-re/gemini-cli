@@ -13,7 +13,11 @@ export type CmdHandler = (
 ) => Promise<ExecResult>;
 
 const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', code: 0 });
-const err = (stderr: string, code = 1): ExecResult => ({ stdout: '', stderr, code });
+const err = (stderr: string, code = 1): ExecResult => ({
+  stdout: '',
+  stderr,
+  code,
+});
 
 export const cmd_pwd: CmdHandler = async (_argv, { cwd }) => ok(cwd + '\n');
 
@@ -30,7 +34,9 @@ export const cmd_cd: CmdHandler = async (argv, { fs, cwd, setCwd }) => {
 export const cmd_ls: CmdHandler = async (argv, { fs, cwd }) => {
   const path = argv[0] ? fs.toAbs(cwd, argv[0]) : cwd;
   const items = await fs.listDir(path);
-  const out = items.map((i) => i.name + (i.kind === 'directory' ? '/' : '')).join('\n');
+  const out = items
+    .map((i) => i.name + (i.kind === 'directory' ? '/' : ''))
+    .join('\n');
   return ok(out + (out ? '\n' : ''));
 };
 
@@ -56,7 +62,8 @@ export const cmd_cat: CmdHandler = async (argv, { fs, cwd }) => {
 export const cmd_echo: CmdHandler = async (argv) => ok(argv.join(' ') + '\n');
 
 export const cmd_rm: CmdHandler = async (argv, { fs, cwd }) => {
-  const recursive = argv.includes('-r') || argv.includes('-rf') || argv.includes('-fr');
+  const recursive =
+    argv.includes('-r') || argv.includes('-rf') || argv.includes('-fr');
   const paths = argv.filter((a) => !a.startsWith('-'));
   if (paths.length === 0) return err('rm: missing operand\n');
   for (const p of paths) {
@@ -75,11 +82,14 @@ export const cmd_cp: CmdHandler = async (argv, { fs, cwd }) => {
     const src = fs.toAbs(cwd, srcRel);
     const kind = await fs.existsDirOrFile(src);
     if (kind === 'directory') {
-      if (!recursive) return err(`cp: -r not specified for directory ${srcRel}\n`);
+      if (!recursive)
+        return err(`cp: -r not specified for directory ${srcRel}\n`);
       const target = fs.join(dest, fs.basename(src));
       await fs.copyDir(src, target);
     } else if (kind === 'file') {
-      const target = fs.existsDir(dest) ? fs.join(dest, fs.basename(src)) : dest;
+      const target = fs.existsDir(dest)
+        ? fs.join(dest, fs.basename(src))
+        : dest;
       await fs.copyFile(src, target);
     }
   }
@@ -102,7 +112,10 @@ export const cmd_mv: CmdHandler = async (argv, { fs, cwd }) => {
 const parseN = (args: string[], def = 10) => {
   const i = args.findIndex((a) => a === '-n');
   if (i >= 0 && args[i + 1])
-    return { n: Math.max(0, Number(args[i + 1]) || def), rest: args.filter((_, idx) => idx !== i && idx !== i + 1) };
+    return {
+      n: Math.max(0, Number(args[i + 1]) || def),
+      rest: args.filter((_, idx) => idx !== i && idx !== i + 1),
+    };
   return { n: def, rest: args };
 };
 
@@ -133,9 +146,18 @@ export const cmd_tail: CmdHandler = async (argv, { fs, cwd }) => {
   return ok(out);
 };
 
-type GrepOpts = { i?: boolean; n?: boolean; r?: boolean; l?: boolean; E?: boolean; max?: number };
+type GrepOpts = {
+  i?: boolean;
+  n?: boolean;
+  r?: boolean;
+  l?: boolean;
+  E?: boolean;
+  max?: number;
+};
 
-const parseGrep = (argv: string[]): { opts: GrepOpts; pattern: string; files: string[] } => {
+const parseGrep = (
+  argv: string[],
+): { opts: GrepOpts; pattern: string; files: string[] } => {
   const opts: GrepOpts = {};
   const files: string[] = [];
   let pattern = '';
@@ -145,7 +167,8 @@ const parseGrep = (argv: string[]): { opts: GrepOpts; pattern: string; files: st
     else if (a === '-r') opts.r = true;
     else if (a === '-l') opts.l = true;
     else if (a === '-E') opts.E = true;
-    else if (a.startsWith('--max-count=')) opts.max = Number(a.split('=')[1]) || undefined;
+    else if (a.startsWith('--max-count='))
+      opts.max = Number(a.split('=')[1]) || undefined;
     else if (!pattern) pattern = a;
     else files.push(a);
   }
@@ -186,7 +209,8 @@ export const cmd_grep: CmdHandler = async (argv, { fs, cwd }) => {
           fileHadMatch = true;
           break;
         }
-        const prefix = (targets.length > 1 ? path + ':' : '') + (opts.n ? i + 1 + ':' : '');
+        const prefix =
+          (targets.length > 1 ? path + ':' : '') + (opts.n ? i + 1 + ':' : '');
         out += prefix + lines[i] + '\n';
         matched++;
         if (opts.max && matched >= opts.max) break;
@@ -198,7 +222,12 @@ export const cmd_grep: CmdHandler = async (argv, { fs, cwd }) => {
   return ok(out);
 };
 
-type SedSpec = { search: string; replace: string; flags: string; inPlace: boolean };
+type SedSpec = {
+  search: string;
+  replace: string;
+  flags: string;
+  inPlace: boolean;
+};
 
 const parseSed = (argv: string[]): { spec?: SedSpec; files: string[] } => {
   let inPlace = false;
@@ -251,4 +280,3 @@ export const defaultCommandRegistry = () =>
     ['grep', cmd_grep],
     ['sed', cmd_sed],
   ]);
-

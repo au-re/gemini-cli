@@ -617,19 +617,22 @@ To get started:
   ): Promise<CommandResult> {
     try {
       const pathArg = args.trim() || '.';
-      
+
       // Handle current directory properly
-      const targetPath = pathArg === '.' ? context.workingDirectory : this.resolvePath(pathArg, context.workingDirectory);
-      
+      const targetPath =
+        pathArg === '.'
+          ? context.workingDirectory
+          : this.resolvePath(pathArg, context.workingDirectory);
+
       const files = await opfsAdapter.readdir(targetPath);
-      
+
       if (files.length === 0) {
-        return { 
-          type: 'message', 
-          content: `Directory ${pathArg} is empty` 
+        return {
+          type: 'message',
+          content: `Directory ${pathArg} is empty`,
         };
       }
-      
+
       // Get file stats and format output
       const fileInfos = [];
       for (const file of files) {
@@ -643,15 +646,15 @@ To get started:
           fileInfos.push(`[???] ${file} (error reading stats)`);
         }
       }
-      
-      return { 
-        type: 'message', 
-        content: `Contents of ${pathArg}:\n${fileInfos.join('\n')}` 
+
+      return {
+        type: 'message',
+        content: `Contents of ${pathArg}:\n${fileInfos.join('\n')}`,
       };
     } catch (error) {
-      return { 
-        type: 'error', 
-        content: `Failed to list files: ${error}` 
+      return {
+        type: 'error',
+        content: `Failed to list files: ${error}`,
       };
     }
   }
@@ -806,7 +809,7 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
 
     try {
       const fullPath = this.resolvePath(pathArg, context.workingDirectory);
-      
+
       // Check if file already exists
       try {
         await opfsAdapter.stat(fullPath);
@@ -844,7 +847,7 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
 
     try {
       const fullPath = this.resolvePath(pathArg, context.workingDirectory);
-      
+
       // Check if it's a file
       const stat = await opfsAdapter.stat(fullPath);
       if (stat.isDirectory()) {
@@ -881,7 +884,7 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
 
     try {
       const fullPath = this.resolvePath(pathArg, context.workingDirectory);
-      
+
       // Check if it's a directory
       const stat = await opfsAdapter.stat(fullPath);
       if (stat.isFile()) {
@@ -918,7 +921,7 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
 
     try {
       const fullPath = this.resolvePath(pathArg, context.workingDirectory);
-      
+
       // Check if it's a file
       const stat = await opfsAdapter.stat(fullPath);
       if (stat.isDirectory()) {
@@ -928,7 +931,9 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
         };
       }
 
-      const content = (await opfsAdapter.readFile(fullPath, { encoding: 'utf8' })) as string;
+      const content = (await opfsAdapter.readFile(fullPath, {
+        encoding: 'utf8',
+      })) as string;
       return {
         type: 'message',
         content: content || '(empty file)',
@@ -946,11 +951,11 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
     context: CommandContext,
   ): Promise<CommandResult> {
     const parts = args.trim().split(' ');
-    
+
     // Handle: /echo "content" > file
     // Handle: /echo "content" >> file
     // Handle: /echo "content"
-    
+
     if (parts.length < 1) {
       return {
         type: 'error',
@@ -959,8 +964,8 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
     }
 
     // Check if there's redirection
-    const redirectIndex = parts.findIndex(p => p === '>' || p === '>>');
-    
+    const redirectIndex = parts.findIndex((p) => p === '>' || p === '>>');
+
     if (redirectIndex === -1) {
       // Simple echo
       return {
@@ -976,9 +981,15 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
       };
     }
 
-    const content = parts.slice(0, redirectIndex).join(' ').replace(/^["']|["']$/g, '');
+    const content = parts
+      .slice(0, redirectIndex)
+      .join(' ')
+      .replace(/^["']|["']$/g, '');
     const operator = parts[redirectIndex];
-    const filename = parts.slice(redirectIndex + 1).join(' ').trim();
+    const filename = parts
+      .slice(redirectIndex + 1)
+      .join(' ')
+      .trim();
 
     if (!filename) {
       return {
@@ -989,18 +1000,21 @@ Ready: ${status.configured ? 'Yes ✓' : 'No - configure API key first'}`,
 
     try {
       const fullPath = this.resolvePath(filename, context.workingDirectory);
-      
+
       let finalContent = content;
       if (operator === '>>') {
         // Append mode
         try {
-          const existingContent = (await opfsAdapter.readFile(fullPath, { encoding: 'utf8' })) as string;
-          finalContent = existingContent + (existingContent ? '\n' : '') + content;
+          const existingContent = (await opfsAdapter.readFile(fullPath, {
+            encoding: 'utf8',
+          })) as string;
+          finalContent =
+            existingContent + (existingContent ? '\n' : '') + content;
         } catch {
           // File doesn't exist, treat as write
         }
       }
-      
+
       await opfsAdapter.writeFile(fullPath, finalContent);
       return {
         type: 'message',

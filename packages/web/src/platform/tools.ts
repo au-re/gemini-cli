@@ -85,7 +85,11 @@ const commandRegistry = defaultCommandRegistry();
 const asToolResp = (res: ExecResult): ToolResult =>
   res.code === 0
     ? { success: true, content: res.stdout }
-    : { success: false, content: res.stdout, error: res.stderr || `exit ${res.code}` };
+    : {
+        success: false,
+        content: res.stdout,
+        error: res.stderr || `exit ${res.code}`,
+      };
 
 const invokeCmd = async (
   handler: CmdHandler,
@@ -124,7 +128,11 @@ class BashTool extends BaseWebTool {
   ): Promise<ToolResult> {
     try {
       const fs = await getFs();
-      const runner = new BashRunner(fs, commandRegistry, context.workingDirectory || '/workspace');
+      const runner = new BashRunner(
+        fs,
+        commandRegistry,
+        context.workingDirectory || '/workspace',
+      );
       const res = await runner.exec(String(parameters.command ?? ''));
       context.workingDirectory = runner.getCwd();
       return asToolResp(res);
@@ -138,7 +146,12 @@ class ReadFileTool extends BaseWebTool {
   name = 'read_file';
   description = 'Read a UTF-8 text file from OPFS and return its contents.';
   parameters: ToolParameter[] = [
-    { name: 'path', type: 'string', description: 'Absolute or relative path', required: true },
+    {
+      name: 'path',
+      type: 'string',
+      description: 'Absolute or relative path',
+      required: true,
+    },
   ];
 
   async execute(
@@ -154,7 +167,11 @@ class ReadFileTool extends BaseWebTool {
       const content = await fs.readFile(abs);
       return { success: true, content };
     } catch (e: any) {
-      return { success: false, content: '', error: 'read_file: ' + String(e?.message ?? e) };
+      return {
+        success: false,
+        content: '',
+        error: 'read_file: ' + String(e?.message ?? e),
+      };
     }
   }
 }
@@ -163,9 +180,24 @@ class WriteFileTool extends BaseWebTool {
   name = 'write_file';
   description = 'Write text to a file in OPFS. Creates parent dirs as needed.';
   parameters: ToolParameter[] = [
-    { name: 'path', type: 'string', description: 'Path to write', required: true },
-    { name: 'content', type: 'string', description: 'Text content', required: true },
-    { name: 'append', type: 'boolean', description: 'Append instead of overwrite', required: false },
+    {
+      name: 'path',
+      type: 'string',
+      description: 'Path to write',
+      required: true,
+    },
+    {
+      name: 'content',
+      type: 'string',
+      description: 'Text content',
+      required: true,
+    },
+    {
+      name: 'append',
+      type: 'boolean',
+      description: 'Append instead of overwrite',
+      required: false,
+    },
   ];
 
   async execute(
@@ -178,10 +210,18 @@ class WriteFileTool extends BaseWebTool {
         context.workingDirectory || '/workspace',
         String(parameters.path),
       );
-      await fs.writeFile(abs, String(parameters.content ?? ''), Boolean(parameters.append));
+      await fs.writeFile(
+        abs,
+        String(parameters.content ?? ''),
+        Boolean(parameters.append),
+      );
       return { success: true, content: `wrote ${abs}` };
     } catch (e: any) {
-      return { success: false, content: '', error: 'write_file: ' + String(e?.message ?? e) };
+      return {
+        success: false,
+        content: '',
+        error: 'write_file: ' + String(e?.message ?? e),
+      };
     }
   }
 }
@@ -190,7 +230,12 @@ class ListDirectoryTool extends BaseWebTool {
   name = 'list_dir';
   description = 'List directory entries at a path.';
   parameters: ToolParameter[] = [
-    { name: 'path', type: 'string', description: 'Directory path (default: .)', required: false },
+    {
+      name: 'path',
+      type: 'string',
+      description: 'Directory path (default: .)',
+      required: false,
+    },
   ];
 
   async execute(
@@ -209,16 +254,26 @@ class ListDirectoryTool extends BaseWebTool {
         .join('\n');
       return { success: true, content };
     } catch (e: any) {
-      return { success: false, content: '', error: 'list_dir: ' + String(e?.message ?? e) };
+      return {
+        success: false,
+        content: '',
+        error: 'list_dir: ' + String(e?.message ?? e),
+      };
     }
   }
 }
 
 class GrepTool extends BaseWebTool {
   name = 'grep';
-  description = 'Search files for a pattern. Supports -i, -n, -r, -l, -E, --max-count=k.';
+  description =
+    'Search files for a pattern. Supports -i, -n, -r, -l, -E, --max-count=k.';
   parameters: ToolParameter[] = [
-    { name: 'args', type: 'string', description: 'Space-separated args: -n PATTERN FILE...', required: true },
+    {
+      name: 'args',
+      type: 'string',
+      description: 'Space-separated args: -n PATTERN FILE...',
+      required: true,
+    },
   ];
 
   async execute(
@@ -233,9 +288,15 @@ class GrepTool extends BaseWebTool {
 
 class HeadTool extends BaseWebTool {
   name = 'head';
-  description = 'Output the first N lines of a file (default 10). Supports -n N.';
+  description =
+    'Output the first N lines of a file (default 10). Supports -n N.';
   parameters: ToolParameter[] = [
-    { name: 'args', type: 'string', description: 'e.g. -n 20 path/to/file', required: true },
+    {
+      name: 'args',
+      type: 'string',
+      description: 'e.g. -n 20 path/to/file',
+      required: true,
+    },
   ];
 
   async execute(
@@ -249,9 +310,15 @@ class HeadTool extends BaseWebTool {
 
 class TailTool extends BaseWebTool {
   name = 'tail';
-  description = 'Output the last N lines of a file (default 10). Supports -n N.';
+  description =
+    'Output the last N lines of a file (default 10). Supports -n N.';
   parameters: ToolParameter[] = [
-    { name: 'args', type: 'string', description: 'e.g. -n 50 logfile.txt', required: true },
+    {
+      name: 'args',
+      type: 'string',
+      description: 'e.g. -n 50 logfile.txt',
+      required: true,
+    },
   ];
 
   async execute(
@@ -267,7 +334,12 @@ class SedTool extends BaseWebTool {
   name = 'sed_replace';
   description = "sed-style substitution. Usage: -i 's/pat/repl/flags' file...";
   parameters: ToolParameter[] = [
-    { name: 'args', type: 'string', description: "e.g. -i 's/foo/bar/g' file.txt", required: true },
+    {
+      name: 'args',
+      type: 'string',
+      description: "e.g. -i 's/foo/bar/g' file.txt",
+      required: true,
+    },
   ];
 
   async execute(
@@ -334,4 +406,3 @@ export class WebToolRegistry {
 }
 
 export const webToolRegistry = new WebToolRegistry();
-

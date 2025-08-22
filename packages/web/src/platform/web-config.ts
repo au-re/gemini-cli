@@ -44,7 +44,9 @@ export class WebConfig {
   private webModel = DEFAULT_GEMINI_FLASH_MODEL;
   private webSessionId = sessionId;
   private webApprovalMode = ApprovalMode.DEFAULT;
-  private webAccessibility: AccessibilitySettings = { disableLoadingPhrases: false };
+  private webAccessibility: AccessibilitySettings = {
+    disableLoadingPhrases: false,
+  };
   private webTelemetry: TelemetrySettings = { enabled: false };
 
   constructor(
@@ -88,7 +90,10 @@ export class WebConfig {
           this.webApprovalMode = settings.approvalMode;
         }
         if (settings.accessibility) {
-          this.webAccessibility = { ...this.webAccessibility, ...settings.accessibility };
+          this.webAccessibility = {
+            ...this.webAccessibility,
+            ...settings.accessibility,
+          };
         }
         if (settings.telemetryEnabled !== undefined) {
           this.webTelemetry.enabled = settings.telemetryEnabled;

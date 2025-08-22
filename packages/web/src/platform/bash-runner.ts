@@ -17,8 +17,15 @@ const splitArgs = (s: string): string[] => {
 
 const extractRedirect = (line: string) => {
   const m = line.match(/(.*?)(\s*>>?\s*)(.+)$/);
-  if (!m) return { cmd: line.trim(), redirect: null as null | { append: boolean; path: string } };
-  return { cmd: m[1].trim(), redirect: { append: m[2].includes('>>'), path: m[3].trim() } };
+  if (!m)
+    return {
+      cmd: line.trim(),
+      redirect: null as null | { append: boolean; path: string },
+    };
+  return {
+    cmd: m[1].trim(),
+    redirect: { append: m[2].includes('>>'), path: m[3].trim() },
+  };
 };
 
 export class BashRunner {
@@ -49,7 +56,12 @@ export class BashRunner {
       const name = argv.shift();
       if (!name) continue;
       const handler = this.registry.get(name);
-      if (!handler) return { stdout: '', stderr: `command not found: ${name}\n`, code: 127 };
+      if (!handler)
+        return {
+          stdout: '',
+          stderr: `command not found: ${name}\n`,
+          code: 127,
+        };
       const res = await handler(argv, {
         fs: this.fs,
         cwd: this.cwd,
@@ -69,4 +81,3 @@ export class BashRunner {
     return last;
   }
 }
-

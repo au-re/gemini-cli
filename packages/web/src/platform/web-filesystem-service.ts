@@ -12,11 +12,18 @@ import * as path from 'path-browserify';
  * Web-compatible FileSystemService implementation that uses OPFS
  */
 export class WebFileSystemService implements FileSystemService {
-  async readFile(filePath: string, encoding?: BufferEncoding): Promise<string | Buffer> {
+  async readFile(
+    filePath: string,
+    encoding?: BufferEncoding,
+  ): Promise<string | Buffer> {
     return opfsAdapter.readFile(filePath, { encoding: encoding || 'utf8' });
   }
 
-  async writeFile(filePath: string, data: string | Buffer, encoding?: BufferEncoding): Promise<void> {
+  async writeFile(
+    filePath: string,
+    data: string | Buffer,
+    encoding?: BufferEncoding,
+  ): Promise<void> {
     return opfsAdapter.writeFile(filePath, data, encoding);
   }
 
@@ -24,11 +31,17 @@ export class WebFileSystemService implements FileSystemService {
     return opfsAdapter.readdir(dirPath);
   }
 
-  async mkdir(dirPath: string, options?: { recursive?: boolean }): Promise<void> {
+  async mkdir(
+    dirPath: string,
+    options?: { recursive?: boolean },
+  ): Promise<void> {
     return opfsAdapter.mkdir(dirPath, options);
   }
 
-  async rmdir(dirPath: string, options?: { recursive?: boolean }): Promise<void> {
+  async rmdir(
+    dirPath: string,
+    options?: { recursive?: boolean },
+  ): Promise<void> {
     return opfsAdapter.rmdir(dirPath, options);
   }
 

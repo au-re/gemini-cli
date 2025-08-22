@@ -27,7 +27,11 @@ export class Opfs {
     return file.text();
   }
 
-  async writeFile(path: string, content: string | ArrayBuffer, append = false): Promise<void> {
+  async writeFile(
+    path: string,
+    content: string | ArrayBuffer,
+    append = false,
+  ): Promise<void> {
     await this.ensureDir(this.dirname(path));
     const { parent, name } = await this.parentAndName(path);
     const fh = await parent.getFileHandle(name, { create: true });
@@ -40,9 +44,11 @@ export class Opfs {
     await ws.close();
   }
 
-  async listDir(path: string): Promise<{ name: string; kind: 'file' | 'directory' }[]> {
+  async listDir(
+    path: string,
+  ): Promise<Array<{ name: string; kind: 'file' | 'directory' }>> {
     const dh = await this.getDir(path);
-    const out: { name: string; kind: 'file' | 'directory' }[] = [];
+    const out: Array<{ name: string; kind: 'file' | 'directory' }> = [];
     for await (const [name, h] of (dh as any).entries()) {
       out.push({ name, kind: h.kind });
     }
@@ -143,7 +149,9 @@ export class Opfs {
   }
 
   toAbs(cwd: string, path: string) {
-    return path.startsWith('/') ? this.normalize(path) : this.normalize(this.join(cwd, path));
+    return path.startsWith('/')
+      ? this.normalize(path)
+      : this.normalize(this.join(cwd, path));
   }
 
   parts(p: string): string[] {
@@ -175,4 +183,3 @@ export class Opfs {
 }
 
 export default Opfs;
-

@@ -12,35 +12,41 @@
  * Check if we're running in a browser environment
  */
 export function isBrowser(): boolean {
-  return typeof window !== 'undefined' && typeof window.document !== 'undefined';
+  return (
+    typeof window !== 'undefined' && typeof window.document !== 'undefined'
+  );
 }
 
 /**
  * Check if we're running in a Node.js environment
  */
 export function isNode(): boolean {
-  return typeof process !== 'undefined' && 
-         process.versions != null && 
-         process.versions.node != null;
+  return (
+    typeof process !== 'undefined' &&
+    process.versions != null &&
+    process.versions.node != null
+  );
 }
 
 /**
  * Check if OPFS is supported
  */
 export function isOPFSSupported(): boolean {
-  return isBrowser() && 
-         'navigator' in globalThis &&
-         'storage' in navigator &&
-         'getDirectory' in navigator.storage;
+  return (
+    isBrowser() &&
+    'navigator' in globalThis &&
+    'storage' in navigator &&
+    'getDirectory' in navigator.storage
+  );
 }
 
 /**
  * Check if we're in a secure context (required for OPFS)
  */
 export function isSecureContext(): boolean {
-  return isBrowser() && 
-         'isSecureContext' in globalThis && 
-         globalThis.isSecureContext;
+  return (
+    isBrowser() && 'isSecureContext' in globalThis && globalThis.isSecureContext
+  );
 }
 
 /**
@@ -148,6 +154,8 @@ export const WebProcess = {
     if (isNode()) {
       process.exit(code);
     }
-    console.warn(`Process exit requested with code ${code}, but ignored in browser`);
+    console.warn(
+      `Process exit requested with code ${code}, but ignored in browser`,
+    );
   },
 };
