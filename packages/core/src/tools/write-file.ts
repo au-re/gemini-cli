@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'fs';
 import path from 'path';
 import * as Diff from 'diff';
 import { Config, ApprovalMode } from '../config/config.js';
@@ -257,14 +256,15 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         !correctedContentResult.fileExists);
 
     try {
+      const fileSystemService = this.config.getFileSystemService();
       const dirName = path.dirname(file_path);
-      if (!fs.existsSync(dirName)) {
-        fs.mkdirSync(dirName, { recursive: true });
+      
+      // Create directory if it doesn't exist
+      if (!(await fileSystemService.exists(dirName))) {
+        await fileSystemService.mkdir(dirName, { recursive: true });
       }
 
-      await this.config
-        .getFileSystemService()
-        .writeTextFile(file_path, fileContent);
+      await fileSystemService.writeTextFile(file_path, fileContent);
 
       // Generate diff for display result
       const fileName = path.basename(file_path);
@@ -438,8 +438,9 @@ export class WriteFileTool
     }
 
     try {
-      if (fs.existsSync(filePath)) {
-        const stats = fs.lstatSync(filePath);
+      const fileSystemService = this.config.getFileSystemService();
+      if (fileSystemService.existsSync(filePath)) {
+        const stats = fileSystemService.statSync(filePath);
         if (stats.isDirectory()) {
           return `Path is a directory, not a file: ${filePath}`;
         }

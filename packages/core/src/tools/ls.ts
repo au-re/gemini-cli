@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'fs';
 import path from 'path';
 import {
   BaseDeclarativeTool,
@@ -137,16 +136,20 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
    */
   async execute(_signal: AbortSignal): Promise<ToolResult> {
     try {
-      const stats = fs.statSync(this.params.path);
-      if (!stats) {
-        // fs.statSync throws on non-existence, so this check might be redundant
-        // but keeping for clarity. Error message adjusted.
+      const fileSystemService = this.config.getFileSystemService();
+      
+      // Check if path exists and is a directory
+      let stats;
+      try {
+        stats = await fileSystemService.stat(this.params.path);
+      } catch (error) {
         return this.errorResult(
           `Error: Directory not found or inaccessible: ${this.params.path}`,
           `Directory not found or inaccessible.`,
           ToolErrorType.FILE_NOT_FOUND,
         );
       }
+      
       if (!stats.isDirectory()) {
         return this.errorResult(
           `Error: Path is not a directory: ${this.params.path}`,
@@ -155,7 +158,7 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
         );
       }
 
-      const files = fs.readdirSync(this.params.path);
+      const files = await fileSystemService.readdir(this.params.path);
 
       const defaultFileIgnores =
         this.config.getFileFilteringOptions() ?? DEFAULT_FILE_FILTERING_OPTIONS;
@@ -213,7 +216,7 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
         }
 
         try {
-          const stats = fs.statSync(fullPath);
+          const stats = await fileSystemService.stat(fullPath);
           const isDir = stats.isDirectory();
           entries.push({
             name: file,
