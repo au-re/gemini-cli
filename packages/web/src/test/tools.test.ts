@@ -42,11 +42,14 @@ describe('Web Tool Registry', () => {
     it('should have default tools registered', () => {
       const definitions = registry.getToolDefinitions();
 
-      expect(definitions).toHaveLength(4);
+      expect(definitions).toHaveLength(7);
       expect(definitions.map((d) => d.name)).toEqual([
         'read_file',
         'write_file',
         'list_directory',
+        'create_directory',
+        'delete_file', 
+        'delete_directory',
         'git_status',
       ]);
     });

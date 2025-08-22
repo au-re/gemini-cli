@@ -230,8 +230,171 @@ class ListDirectoryTool extends WebTool {
 }
 
 /**
- * Git status tool
+ * Create directory tool
  */
+class CreateDirectoryTool extends WebTool {
+  name = 'create_directory';
+  description = 'Create a directory and any necessary parent directories';
+  parameters: ToolParameter[] = [
+    {
+      name: 'path',
+      type: 'string',
+      description: 'Path to the directory to create',
+      required: true,
+    },
+  ];
+
+  async execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
+    try {
+      const path = parameters['path'] as string;
+      if (!path) {
+        return {
+          success: false,
+          content: '',
+          error: 'Path parameter is required',
+        };
+      }
+
+      const fullPath = context.workingDirectory
+        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
+        : path;
+
+      await opfsAdapter.mkdir(fullPath, { recursive: true });
+
+      return {
+        success: true,
+        content: `Successfully created directory: ${path}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        content: '',
+        error: `Failed to create directory: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+}
+
+/**
+ * Delete file tool
+ */
+class DeleteFileTool extends WebTool {
+  name = 'delete_file';
+  description = 'Delete a file';
+  parameters: ToolParameter[] = [
+    {
+      name: 'path',
+      type: 'string',
+      description: 'Path to the file to delete',
+      required: true,
+    },
+  ];
+
+  async execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
+    try {
+      const path = parameters['path'] as string;
+      if (!path) {
+        return {
+          success: false,
+          content: '',
+          error: 'Path parameter is required',
+        };
+      }
+
+      const fullPath = context.workingDirectory
+        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
+        : path;
+
+      // Check if it's a file
+      const stat = await opfsAdapter.stat(fullPath);
+      if (stat.isDirectory()) {
+        return {
+          success: false,
+          content: '',
+          error: `${path} is a directory. Cannot delete directories with delete_file.`,
+        };
+      }
+
+      await opfsAdapter.unlink(fullPath);
+
+      return {
+        success: true,
+        content: `Successfully deleted file: ${path}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        content: '',
+        error: `Failed to delete file: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+}
+
+/**
+ * Delete directory tool
+ */
+class DeleteDirectoryTool extends WebTool {
+  name = 'delete_directory';
+  description = 'Delete a directory (must be empty)';
+  parameters: ToolParameter[] = [
+    {
+      name: 'path',
+      type: 'string',
+      description: 'Path to the directory to delete',
+      required: true,
+    },
+  ];
+
+  async execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
+    try {
+      const path = parameters['path'] as string;
+      if (!path) {
+        return {
+          success: false,
+          content: '',
+          error: 'Path parameter is required',
+        };
+      }
+
+      const fullPath = context.workingDirectory
+        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
+        : path;
+
+      // Check if it's a directory
+      const stat = await opfsAdapter.stat(fullPath);
+      if (stat.isFile()) {
+        return {
+          success: false,
+          content: '',
+          error: `${path} is a file. Cannot delete files with delete_directory.`,
+        };
+      }
+
+      await opfsAdapter.rmdir(fullPath, { recursive: false });
+
+      return {
+        success: true,
+        content: `Successfully deleted directory: ${path}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        content: '',
+        error: `Failed to delete directory: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+}
 class GitStatusTool extends WebTool {
   name = 'git_status';
   description = 'Get the current git status of the repository';
@@ -301,6 +464,9 @@ export class WebToolRegistry {
     this.registerTool(new ReadFileTool());
     this.registerTool(new WriteFileTool());
     this.registerTool(new ListDirectoryTool());
+    this.registerTool(new CreateDirectoryTool());
+    this.registerTool(new DeleteFileTool());
+    this.registerTool(new DeleteDirectoryTool());
     this.registerTool(new GitStatusTool());
   }
 
