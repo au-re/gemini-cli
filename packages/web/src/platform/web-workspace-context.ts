@@ -10,6 +10,7 @@ export interface WebWorkspaceContextInterface {
   relativizePathToWorkspace(absolutePath: string): string;
   isInWorkspace(filePath: string): boolean;
   getCurrentWorkspace(): string;
+  getWorkingDirectory(): string;
   initializeWorkspace(rootPath?: string): Promise<void>;
 }
 
@@ -45,6 +46,10 @@ export class WebWorkspaceContext implements WebWorkspaceContextInterface {
   }
 
   getCurrentWorkspace(): string {
+    return this._workingDirectory;
+  }
+
+  getWorkingDirectory(): string {
     return this._workingDirectory;
   }
 
