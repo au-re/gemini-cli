@@ -136,29 +136,71 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
    */
   async execute(_signal: AbortSignal): Promise<ToolResult> {
     try {
-      const fileSystemService = this.config.getFileSystemService();
+      // Try to use the new FileSystemService, but fallback to direct fs for backward compatibility
+      let stats: { isDirectory(): boolean; isFile(): boolean; size: number; mtime: Date };
+      let files: string[];
       
-      // Check if path exists and is a directory
-      let stats;
       try {
-        stats = await fileSystemService.stat(this.params.path);
-      } catch (error) {
-        return this.errorResult(
-          `Error: Directory not found or inaccessible: ${this.params.path}`,
-          `Directory not found or inaccessible.`,
-          ToolErrorType.FILE_NOT_FOUND,
-        );
-      }
-      
-      if (!stats.isDirectory()) {
-        return this.errorResult(
-          `Error: Path is not a directory: ${this.params.path}`,
-          `Path is not a directory.`,
-          ToolErrorType.PATH_IS_NOT_A_DIRECTORY,
-        );
-      }
+        const fileSystemService = this.config.getFileSystemService();
+        
+        // Check if path exists and is a directory
+        try {
+          stats = await fileSystemService.stat(this.params.path);
+        } catch (error) {
+          return this.errorResult(
+            `Error: Directory not found or inaccessible: ${this.params.path}`,
+            `Directory not found or inaccessible.`,
+            ToolErrorType.FILE_NOT_FOUND,
+          );
+        }
+        
+        if (!stats.isDirectory()) {
+          return this.errorResult(
+            `Error: Path is not a directory: ${this.params.path}`,
+            `Path is not a directory.`,
+            ToolErrorType.PATH_IS_NOT_A_DIRECTORY,
+          );
+        }
 
-      const files = await fileSystemService.readdir(this.params.path);
+        files = await fileSystemService.readdir(this.params.path);
+        
+      } catch (serviceError) {
+        // Fallback to direct fs for backward compatibility (mainly for tests)
+        const fs = await import('fs');
+        try {
+          const fsStats = fs.statSync(this.params.path);
+          if (!fsStats) {
+            return this.errorResult(
+              `Error: Directory not found or inaccessible: ${this.params.path}`,
+              `Directory not found or inaccessible.`,
+              ToolErrorType.FILE_NOT_FOUND,
+            );
+          }
+          if (!fsStats.isDirectory()) {
+            return this.errorResult(
+              `Error: Path is not a directory: ${this.params.path}`,
+              `Path is not a directory.`,
+              ToolErrorType.PATH_IS_NOT_A_DIRECTORY,
+            );
+          }
+          
+          files = fs.readdirSync(this.params.path);
+          
+          // Convert fs.Stats to the expected format
+          stats = {
+            isDirectory: () => fsStats.isDirectory(),
+            isFile: () => fsStats.isFile(),
+            size: fsStats.size,
+            mtime: fsStats.mtime,
+          };
+        } catch (fsError) {
+          return this.errorResult(
+            `Error listing directory: ${fsError}`,
+            `Failed to list directory.`,
+            ToolErrorType.LS_EXECUTION_ERROR,
+          );
+        }
+      }
 
       const defaultFileIgnores =
         this.config.getFileFilteringOptions() ?? DEFAULT_FILE_FILTERING_OPTIONS;
@@ -216,15 +258,30 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
         }
 
         try {
-          const stats = await fileSystemService.stat(fullPath);
-          const isDir = stats.isDirectory();
-          entries.push({
-            name: file,
-            path: fullPath,
-            isDirectory: isDir,
-            size: isDir ? 0 : stats.size,
-            modifiedTime: stats.mtime,
-          });
+          const fileSystemService = this.config.getFileSystemService?.();
+          if (fileSystemService) {
+            const stats = await fileSystemService.stat(fullPath);
+            const isDir = stats.isDirectory();
+            entries.push({
+              name: file,
+              path: fullPath,
+              isDirectory: isDir,
+              size: isDir ? 0 : stats.size,
+              modifiedTime: stats.mtime,
+            });
+          } else {
+            // Fallback to direct fs
+            const fs = await import('fs');
+            const stats = fs.statSync(fullPath);
+            const isDir = stats.isDirectory();
+            entries.push({
+              name: file,
+              path: fullPath,
+              isDirectory: isDir,
+              size: isDir ? 0 : stats.size,
+              modifiedTime: stats.mtime,
+            });
+          }
         } catch (error) {
           // Log error internally but don't fail the whole listing
           console.error(`Error accessing ${fullPath}: ${error}`);

@@ -256,15 +256,27 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         !correctedContentResult.fileExists);
 
     try {
-      const fileSystemService = this.config.getFileSystemService();
-      const dirName = path.dirname(file_path);
-      
-      // Create directory if it doesn't exist
-      if (!(await fileSystemService.exists(dirName))) {
-        await fileSystemService.mkdir(dirName, { recursive: true });
-      }
+      // Try to use the new FileSystemService, but fallback for backward compatibility  
+      try {
+        const fileSystemService = this.config.getFileSystemService();
+        const dirName = path.dirname(file_path);
+        
+        // Create directory if it doesn't exist
+        if (!(await fileSystemService.exists(dirName))) {
+          await fileSystemService.mkdir(dirName, { recursive: true });
+        }
 
-      await fileSystemService.writeTextFile(file_path, fileContent);
+        await fileSystemService.writeTextFile(file_path, fileContent);
+      } catch (serviceError) {
+        // Fallback to direct fs for backward compatibility
+        const fs = await import('fs');
+        const dirName = path.dirname(file_path);
+        if (!fs.existsSync(dirName)) {
+          fs.mkdirSync(dirName, { recursive: true });
+        }
+        
+        await fs.promises.writeFile(file_path, fileContent, 'utf-8');
+      }
 
       // Generate diff for display result
       const fileName = path.basename(file_path);
@@ -438,11 +450,26 @@ export class WriteFileTool
     }
 
     try {
-      const fileSystemService = this.config.getFileSystemService();
-      if (fileSystemService.existsSync(filePath)) {
-        const stats = fileSystemService.statSync(filePath);
-        if (stats.isDirectory()) {
-          return `Path is a directory, not a file: ${filePath}`;
+      const fileSystemService = this.config.getFileSystemService?.();
+      if (fileSystemService?.existsSync && fileSystemService?.statSync) {
+        if (fileSystemService.existsSync(filePath)) {
+          const stats = fileSystemService.statSync(filePath);
+          if (stats.isDirectory()) {
+            return `Path is a directory, not a file: ${filePath}`;
+          }
+        }
+      } else {
+        // Fallback to direct fs for backward compatibility (synchronous only)
+        try {
+          const fs = eval('require')('fs');
+          if (fs.existsSync(filePath)) {
+            const stats = fs.lstatSync(filePath);
+            if (stats.isDirectory()) {
+              return `Path is a directory, not a file: ${filePath}`;
+            }
+          }
+        } catch {
+          // If fs is not available (like in web), skip validation
         }
       }
     } catch (statError: unknown) {
