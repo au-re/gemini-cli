@@ -6,7 +6,7 @@
 
 /**
  * Example usage of the Web Platform Adapter for core package integration
- * 
+ *
  * This file demonstrates how to use the new platform abstractions to leverage
  * the core package's infrastructure in a web environment.
  */
@@ -16,6 +16,7 @@ import {
   webPlatformAdapter,
   WebPlatformAdapter,
 } from '../platform/index.js';
+import { ApprovalMode } from '@google/gemini-cli-core';
 
 /**
  * Example 1: Basic initialization and configuration
@@ -56,16 +57,21 @@ async function toolRegistryExample() {
   if (toolRegistry) {
     // Get all available tools
     const tools = toolRegistry.getAllTools();
-    console.log('Available tools:', tools.map(t => t.name));
+    console.log(
+      'Available tools:',
+      tools.map((t) => t.name),
+    );
 
     // Execute a tool
     try {
-      const result = await toolRegistry.executeTool(
-        'read_file',
-        { path: '/workspace/example.txt' },
-        new AbortController().signal,
-      );
-      console.log('Tool result:', result);
+      const tool = toolRegistry.getTool('read_file');
+      if (tool) {
+        const result = await tool.validateBuildAndExecute(
+          { path: '/workspace/example.txt' },
+          new AbortController().signal,
+        );
+        console.log('Tool result:', result);
+      }
     } catch (error) {
       console.error('Tool execution failed:', error);
     }
@@ -93,7 +99,7 @@ async function geminiClientExample() {
   try {
     const response = await geminiClient.sendPrompt(
       'List the files in my workspace',
-      { enableTools: true }
+      { enableTools: true },
     );
     console.log('Response with tools:', response.text);
     console.log('Tool calls made:', response.toolCalls);
@@ -113,19 +119,20 @@ async function fileSystemExample() {
   try {
     // Write a file
     await fileSystem.writeFile('/workspace/test.txt', 'Hello, world!');
-    
+
     // Read the file back
     const content = await fileSystem.readFile('/workspace/test.txt', 'utf8');
     console.log('File content:', content);
-    
+
     // List directory contents
     const files = await fileSystem.readdir('/workspace');
     console.log('Workspace files:', files);
-    
+
     // Use workspace context for path resolution
-    const relativePath = workspace.relativizePathToWorkspace('/workspace/test.txt');
+    const relativePath = workspace.relativizePathToWorkspace(
+      '/workspace/test.txt',
+    );
     console.log('Relative path:', relativePath);
-    
   } catch (error) {
     console.error('File system operation failed:', error);
   }
@@ -140,7 +147,7 @@ async function settingsExample() {
 
   // Set configuration options
   config.setModel('gemini-1.5-pro');
-  config.setApprovalMode('autoEdit' as any); // Cast needed for enum
+  config.setApprovalMode(ApprovalMode.AUTO_EDIT);
 
   // Get configuration details
   const configStatus = config.getWebConfigStatus();
@@ -148,10 +155,10 @@ async function settingsExample() {
 
   // Save and load settings are handled automatically
   const storage = adapter.getStorage();
-  
+
   // Store custom data
   await storage.set('user-preference', { theme: 'dark', language: 'en' });
-  
+
   // Retrieve custom data
   const preferences = await storage.get('user-preference');
   console.log('User preferences:', preferences);
@@ -166,7 +173,7 @@ async function errorHandlingExample() {
   try {
     // Test configuration
     const testResult = await adapter.testConfiguration();
-    
+
     if (testResult.success) {
       console.log('Configuration test passed');
     } else {
@@ -187,18 +194,18 @@ async function errorHandlingExample() {
 async function globalSingletonExample() {
   // Initialize the global singleton
   await webPlatformAdapter.initialize();
-  
+
   // Configure it
   await webPlatformAdapter.configureApiKey('your-api-key-here');
-  
+
   // Use it throughout your application
   const status = webPlatformAdapter.getStatus();
   console.log('Global adapter status:', status);
-  
+
   // Access services globally
   const config = webPlatformAdapter.getConfig();
   const geminiClient = webPlatformAdapter.getGeminiClient();
-  
+
   // The global instance is available anywhere in your app
   return { config, geminiClient };
 }

@@ -18,6 +18,7 @@ import {
   ContentGeneratorConfig,
   createContentGeneratorConfig,
   MCPOAuthConfig,
+  MCPServerConfig,
   DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   ToolRegistry,
@@ -44,7 +45,9 @@ export class WebConfig {
   private webModel = DEFAULT_GEMINI_FLASH_MODEL;
   private webSessionId = sessionId;
   private webApprovalMode = ApprovalMode.DEFAULT;
-  private webAccessibility: AccessibilitySettings = { disableLoadingPhrases: false };
+  private webAccessibility: AccessibilitySettings = {
+    disableLoadingPhrases: false,
+  };
   private webTelemetry: TelemetrySettings = { enabled: false };
 
   constructor(
@@ -88,7 +91,10 @@ export class WebConfig {
           this.webApprovalMode = settings.approvalMode;
         }
         if (settings.accessibility) {
-          this.webAccessibility = { ...this.webAccessibility, ...settings.accessibility };
+          this.webAccessibility = {
+            ...this.webAccessibility,
+            ...settings.accessibility,
+          };
         }
         if (settings.telemetryEnabled !== undefined) {
           this.webTelemetry.enabled = settings.telemetryEnabled;
@@ -208,7 +214,7 @@ export class WebConfig {
   }
 
   // MCP settings (not supported in web initially)
-  getMcpServers(): Record<string, any> | undefined {
+  getMcpServers(): Record<string, MCPServerConfig> | undefined {
     return undefined;
   }
 
@@ -238,7 +244,7 @@ export class WebConfig {
     return '';
   }
 
-  setUserMemory(memory: string): void {
+  setUserMemory(_memory: string): void {
     // Could implement web storage for user memory if needed
   }
 

@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GeminiClient, ToolRegistry, ToolResult } from '@google/gemini-cli-core';
+import {
+  GeminiClient,
+  ToolRegistry,
+  ToolResult,
+} from '@google/gemini-cli-core';
 import { Content, FunctionCall, Part } from '@google/genai';
 import { WebConfig } from './web-config.js';
 import { XtermHost } from '../terminal/XtermHost.js';
@@ -26,7 +30,10 @@ export interface WebGeminiResponse {
  */
 export interface WebStreamingOptions {
   onProgress?: (chunk: string) => void;
-  onToolCall?: (toolCall: { name: string; parameters: Record<string, unknown> }) => void;
+  onToolCall?: (toolCall: {
+    name: string;
+    parameters: Record<string, unknown>;
+  }) => void;
   onToolResult?: (result: ToolResult) => void;
 }
 
@@ -72,9 +79,9 @@ export class WebGeminiClient {
 
     try {
       const contents = [{ role: 'user' as const, parts: [{ text: prompt }] }];
-      
-      const config: any = {};
-      
+
+      const config: { tools?: unknown[] } = {};
+
       // Add tools if enabled
       if (context?.enableTools) {
         const tools = this.toolRegistry.getGeminiTools();
@@ -91,11 +98,11 @@ export class WebGeminiClient {
 
       // Extract tool calls
       const toolCalls = this.extractToolCalls(result.candidates?.[0]?.content);
-      
+
       // Execute tools if present
       if (toolCalls.length > 0 && context?.enableTools) {
         const toolResults = await this.executeTools(toolCalls);
-        
+
         // Continue conversation with tool results
         const followUpResult = await this.handleToolResults(
           contents,
@@ -103,7 +110,7 @@ export class WebGeminiClient {
           toolCalls,
           toolResults,
         );
-        
+
         return {
           text: followUpResult.text || '',
           finishReason: followUpResult.candidates?.[0]?.finishReason,
@@ -117,7 +124,9 @@ export class WebGeminiClient {
         toolCalls,
       };
     } catch (error) {
-      throw new Error(`Failed to send prompt: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to send prompt: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -140,7 +149,7 @@ export class WebGeminiClient {
     try {
       // For streaming, we'll use a different approach since the core client
       // might not have direct streaming support in the same way
-      
+
       // First attempt with regular response, then stream output
       const response = await this.sendPrompt(prompt, {
         workingDirectory: context.workingDirectory,
@@ -160,7 +169,9 @@ export class WebGeminiClient {
 
       // Notify about tool calls
       if (response.toolCalls) {
-        response.toolCalls.forEach(toolCall => options?.onToolCall?.(toolCall));
+        response.toolCalls.forEach((toolCall) =>
+          options?.onToolCall?.(toolCall),
+        );
       }
 
       return response;
@@ -185,7 +196,7 @@ export class WebGeminiClient {
   ): Promise<WebGeminiResponse> {
     const fileSystemService = this.webConfig.getFileSystemService();
     const workspaceContext = this.webConfig.getWorkspaceContext();
-    
+
     let contextualPrompt = prompt + '\n\nFile contents:\n\n';
 
     // Add file contents to prompt
@@ -199,13 +210,18 @@ export class WebGeminiClient {
     for (const filePath of filesToProcess) {
       try {
         const resolvedPath = workspaceContext.resolvePath(filePath);
-        const content = await fileSystemService.readFile(resolvedPath, 'utf8') as string;
+        const content = (await fileSystemService.readFile(
+          resolvedPath,
+          'utf8',
+        )) as string;
 
         // Limit content size
         const maxContentLength = 10000;
-        const truncatedContent = content.length > maxContentLength
-          ? content.substring(0, maxContentLength) + '\n\n[... content truncated ...]'
-          : content;
+        const truncatedContent =
+          content.length > maxContentLength
+            ? content.substring(0, maxContentLength) +
+              '\n\n[... content truncated ...]'
+            : content;
 
         contextualPrompt += `--- ${filePath} ---\n${truncatedContent}\n\n`;
       } catch (error) {
@@ -277,7 +293,10 @@ export class WebGeminiClient {
   }> {
     if (!content?.parts) return [];
 
-    const toolCalls: Array<{ name: string; parameters: Record<string, unknown> }> = [];
+    const toolCalls: Array<{
+      name: string;
+      parameters: Record<string, unknown>;
+    }> = [];
 
     for (const part of content.parts) {
       if ('functionCall' in part && part.functionCall) {
@@ -324,7 +343,7 @@ export class WebGeminiClient {
    */
   private async handleToolResults(
     originalContents: Array<{ role: string; parts: Array<{ text: string }> }>,
-    originalConfig: any,
+    originalConfig: { tools?: unknown[] },
     toolCalls: Array<{ name: string; parameters: Record<string, unknown> }>,
     toolResults: ToolResult[],
   ): Promise<{ text?: string; candidates?: Array<{ finishReason?: string }> }> {
@@ -339,7 +358,9 @@ export class WebGeminiClient {
         response: {
           success: !result.returnDisplay?.includes('Failed'),
           content: result.llmContent,
-          error: result.returnDisplay?.includes('Failed') ? result.llmContent : undefined,
+          error: result.returnDisplay?.includes('Failed')
+            ? result.llmContent
+            : undefined,
         },
       },
     }));
@@ -349,7 +370,7 @@ export class WebGeminiClient {
       ...originalContents,
       {
         role: 'model' as const,
-        parts: toolCalls.map(call => ({
+        parts: toolCalls.map((call) => ({
           functionCall: { name: call.name, args: call.parameters },
         })),
       },
@@ -383,6 +404,6 @@ export class WebGeminiClient {
    * Simple delay utility
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

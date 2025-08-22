@@ -38,7 +38,9 @@ export class WebPlatformAdapter {
 
     // Validate browser environment
     if (!isBrowser()) {
-      throw new Error('WebPlatformAdapter can only be used in browser environment');
+      throw new Error(
+        'WebPlatformAdapter can only be used in browser environment',
+      );
     }
 
     const platformInfo = getPlatformInfo();
@@ -50,9 +52,9 @@ export class WebPlatformAdapter {
     this.workspaceContext = new WebWorkspaceContext(
       options?.workspaceRoot || '/workspace',
     );
-    
+
     this.fileSystemService = new WebFileSystemService();
-    
+
     this.storage = new WebStorage(
       options?.storageBasePath || '/workspace/.gemini-cli',
     );
@@ -63,7 +65,7 @@ export class WebPlatformAdapter {
       this.fileSystemService,
       this.workspaceContext,
     );
-    
+
     await this.webConfig.initialize();
 
     // Initialize tool registry
@@ -95,7 +97,9 @@ export class WebPlatformAdapter {
    */
   private ensureInitialized(): void {
     if (!this.initialized) {
-      throw new Error('WebPlatformAdapter not initialized. Call initialize() first.');
+      throw new Error(
+        'WebPlatformAdapter not initialized. Call initialize() first.',
+      );
     }
   }
 
@@ -144,7 +148,7 @@ export class WebPlatformAdapter {
    */
   async configureApiKey(apiKey: string): Promise<void> {
     this.ensureInitialized();
-    
+
     await this.webConfig!.setWebApiKey(apiKey);
     await this.geminiClient!.initialize();
   }
@@ -156,9 +160,9 @@ export class WebPlatformAdapter {
     success: boolean;
     error?: string;
     details?: {
-      platform: any;
-      config: any;
-      gemini: any;
+      platform: unknown;
+      config: unknown;
+      gemini: unknown;
     };
   }> {
     this.ensureInitialized();
@@ -166,19 +170,22 @@ export class WebPlatformAdapter {
     try {
       const platformInfo = getPlatformInfo();
       const configStatus = this.webConfig!.getWebConfigStatus();
-      
+
       let geminiTest = { success: false, error: 'Not configured' };
       if (configStatus.configured) {
         geminiTest = await this.geminiClient!.testConfiguration();
       }
 
-      const success = platformInfo.platform === 'browser' && 
-                     configStatus.configured && 
-                     geminiTest.success;
+      const success =
+        platformInfo.platform === 'browser' &&
+        configStatus.configured &&
+        geminiTest.success;
 
       return {
         success,
-        error: success ? undefined : (geminiTest.error || 'Configuration incomplete'),
+        error: success
+          ? undefined
+          : geminiTest.error || 'Configuration incomplete',
         details: {
           platform: platformInfo,
           config: configStatus,
@@ -198,10 +205,10 @@ export class WebPlatformAdapter {
    */
   getStatus(): {
     initialized: boolean;
-    platform: any;
-    config: any;
-    workspace: any;
-    gemini: any;
+    platform: unknown;
+    config: unknown;
+    workspace: unknown;
+    gemini: unknown;
   } {
     if (!this.initialized) {
       return {
@@ -229,10 +236,10 @@ export class WebPlatformAdapter {
    */
   async reset(): Promise<void> {
     this.ensureInitialized();
-    
+
     await this.webConfig!.clearWebConfiguration();
     await this.storage!.clear();
-    
+
     // Reinitialize
     this.initialized = false;
     await this.initialize();
