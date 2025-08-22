@@ -4,12 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import {
   ApprovalMode,
   AccessibilitySettings,
@@ -17,32 +11,25 @@ import {
   AuthType,
   ContentGeneratorConfig,
   createContentGeneratorConfig,
-  MCPOAuthConfig,
   DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
-  ToolRegistry,
-  PromptRegistry,
 } from '@google/gemini-cli-core';
 import { WebStorage } from './web-storage.js';
 import { WebFileSystemService } from './web-filesystem-service.js';
 import { WebWorkspaceContext } from './web-workspace-context.js';
-import { sessionId } from '@google/gemini-cli-core';
 
 /**
  * Web-compatible configuration for Gemini CLI
- * Uses composition instead of inheritance to avoid core Config constraints
+ * Uses composition to provide core Config compatibility without full inheritance
  */
 export class WebConfig {
   private storage: WebStorage;
   private fileSystemService: WebFileSystemService;
   private workspaceContext: WebWorkspaceContext;
-  private toolRegistry?: ToolRegistry;
-  private promptRegistry?: PromptRegistry;
 
   // Web-specific configuration
   private webApiKey: string | null = null;
   private webModel = DEFAULT_GEMINI_FLASH_MODEL;
-  private webSessionId = sessionId;
   private webApprovalMode = ApprovalMode.DEFAULT;
   private webAccessibility: AccessibilitySettings = { disableLoadingPhrases: false };
   private webTelemetry: TelemetrySettings = { enabled: false };
@@ -169,22 +156,6 @@ export class WebConfig {
     return this.fileSystemService;
   }
 
-  getToolRegistry(): ToolRegistry | undefined {
-    return this.toolRegistry;
-  }
-
-  setToolRegistry(registry: ToolRegistry): void {
-    this.toolRegistry = registry;
-  }
-
-  getPromptRegistry(): PromptRegistry | undefined {
-    return this.promptRegistry;
-  }
-
-  setPromptRegistry(registry: PromptRegistry): void {
-    this.promptRegistry = registry;
-  }
-
   // Settings accessors
   getTelemetryEnabled(): boolean {
     return this.webTelemetry.enabled ?? false;
@@ -207,53 +178,17 @@ export class WebConfig {
     return this.webAccessibility;
   }
 
-  // MCP settings (not supported in web initially)
-  getMcpServers(): Record<string, any> | undefined {
-    return undefined;
+  // Core config compatibility methods
+  getDebugMode(): boolean {
+    return false; // Disabled by default in web
   }
 
-  getMcpServerCommand(): string | undefined {
-    return undefined;
+  getWorkingDirectory(): string {
+    return this.workspaceContext.getWorkingDirectory();
   }
 
-  getMcpOAuthConfig(): MCPOAuthConfig | undefined {
-    return undefined;
-  }
-
-  // Session management
-  getSessionId(): string {
-    return this.webSessionId;
-  }
-
-  setSessionId(sessionId: string): void {
-    this.webSessionId = sessionId;
-  }
-
-  // Memory and embedding settings
-  getEmbeddingModel(): string {
-    return DEFAULT_GEMINI_EMBEDDING_MODEL;
-  }
-
-  getUserMemory(): string {
-    return '';
-  }
-
-  setUserMemory(memory: string): void {
-    // Could implement web storage for user memory if needed
-  }
-
-  // Web-specific utility methods
-  async testApiConnection(): Promise<boolean> {
-    if (!this.webApiKey) {
-      return false;
-    }
-
-    try {
-      // This would be implemented by the web Gemini client
-      return true;
-    } catch {
-      return false;
-    }
+  getTargetDir(): string {
+    return this.workspaceContext.getWorkingDirectory();
   }
 
   getWebConfigStatus(): {
@@ -283,14 +218,5 @@ export class WebConfig {
       apiKey: this.webApiKey,
       model: this.webModel,
     };
-  }
-
-  // Core config compatibility methods
-  getDebugMode(): boolean {
-    return false; // Disabled by default in web
-  }
-
-  getWorkingDirectory(): string {
-    return this.workspaceContext.getWorkingDirectory();
   }
 }

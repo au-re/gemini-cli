@@ -62,6 +62,18 @@ describe('LSTool', () => {
       getTargetDir: vi.fn().mockReturnValue(mockPrimaryDir),
       getWorkspaceContext: vi.fn().mockReturnValue(mockWorkspaceContext),
       getFileService: vi.fn().mockReturnValue(mockFileService),
+      getFileSystemService: vi.fn().mockReturnValue({
+        readdir: vi.fn(),
+        stat: vi.fn(),
+        exists: vi.fn(),
+        mkdir: vi.fn(),
+        existsSync: vi.fn().mockReturnValue(true),
+        statSync: vi.fn().mockReturnValue({
+          isFile: () => false,
+          isDirectory: () => true,
+          size: 0,
+        }),
+      }),
       getFileFilteringOptions: vi.fn().mockReturnValue({
         respectGitIgnore: true,
         respectGeminiIgnore: true,
