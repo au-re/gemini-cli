@@ -4,13 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * Web-adapted tool execution system for Gemini integration
- * Provides file operations and basic tools that work in browser environment
- */
-
-import { opfsAdapter } from './opfs-fs.js';
-import { gitService } from './git.js';
+import { Opfs } from './opfs.js';
+import { BashRunner } from './bash-runner.js';
+import {
+  cmd_grep,
+  cmd_head,
+  cmd_tail,
+  cmd_sed,
+  defaultCommandRegistry,
+  CmdHandler,
+  ExecResult,
+} from './commands.js';
 
 export interface ToolParameter {
   name: string;
@@ -36,10 +40,23 @@ export interface ToolResult {
   error?: string;
 }
 
-/**
- * Base class for web tools
- */
-abstract class WebTool {
+export interface ToolExecutionContext {
+  workingDirectory: string;
+  terminal?: { print: (text: string) => void };
+}
+
+export interface WebTool {
+  name: string;
+  description: string;
+  parameters: ToolParameter[];
+  execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult>;
+  getDefinition(): ToolDefinition;
+}
+
+abstract class BaseWebTool implements WebTool {
   abstract name: string;
   abstract description: string;
   abstract parameters: ToolParameter[];
@@ -58,26 +75,70 @@ abstract class WebTool {
   }
 }
 
-export interface ToolExecutionContext {
-  workingDirectory: string;
-  terminal?: {
-    print: (text: string) => void;
-  };
+let fsPromise: Promise<Opfs> | null = null;
+const getFs = () => {
+  if (!fsPromise) fsPromise = Opfs.create();
+  return fsPromise;
+};
+const commandRegistry = defaultCommandRegistry();
+
+const asToolResp = (res: ExecResult): ToolResult =>
+  res.code === 0
+    ? { success: true, content: res.stdout }
+    : { success: false, content: res.stdout, error: res.stderr || `exit ${res.code}` };
+
+const invokeCmd = async (
+  handler: CmdHandler,
+  argv: string[],
+  context: ToolExecutionContext,
+): Promise<ToolResult> => {
+  try {
+    const fs = await getFs();
+    const res = await handler(argv, {
+      fs,
+      cwd: context.workingDirectory || '/workspace',
+      setCwd: () => {},
+    });
+    return asToolResp(res);
+  } catch (e: any) {
+    return { success: false, content: '', error: String(e?.message ?? e) };
+  }
+};
+
+class BashTool extends BaseWebTool {
+  name = 'bash';
+  description =
+    'Execute a tiny bash-like command against OPFS (/workspace). Supports ls, cd, pwd, mkdir, echo, cat, rm, cp, mv, grep, head, tail, sed.';
+  parameters: ToolParameter[] = [
+    {
+      name: 'command',
+      type: 'string',
+      description: 'Command line to execute',
+      required: true,
+    },
+  ];
+
+  async execute(
+    parameters: Record<string, unknown>,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
+    try {
+      const fs = await getFs();
+      const runner = new BashRunner(fs, commandRegistry, context.workingDirectory || '/workspace');
+      const res = await runner.exec(String(parameters.command ?? ''));
+      context.workingDirectory = runner.getCwd();
+      return asToolResp(res);
+    } catch (e: any) {
+      return { success: false, content: '', error: String(e?.message ?? e) };
+    }
+  }
 }
 
-/**
- * Read file tool
- */
-class ReadFileTool extends WebTool {
+class ReadFileTool extends BaseWebTool {
   name = 'read_file';
-  description = 'Read the contents of a file';
+  description = 'Read a UTF-8 text file from OPFS and return its contents.';
   parameters: ToolParameter[] = [
-    {
-      name: 'path',
-      type: 'string',
-      description: 'Path to the file to read',
-      required: true,
-    },
+    { name: 'path', type: 'string', description: 'Absolute or relative path', required: true },
   ];
 
   async execute(
@@ -85,55 +146,26 @@ class ReadFileTool extends WebTool {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     try {
-      const path = parameters['path'] as string;
-      if (!path) {
-        return {
-          success: false,
-          content: '',
-          error: 'Path parameter is required',
-        };
-      }
-
-      const fullPath = context.workingDirectory
-        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
-        : path;
-      const content = (await opfsAdapter.readFile(fullPath, {
-        encoding: 'utf8',
-      })) as string;
-
-      return {
-        success: true,
-        content: `File: ${path}\n\n${content}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        content: '',
-        error: `Failed to read file: ${error instanceof Error ? error.message : String(error)}`,
-      };
+      const fs = await getFs();
+      const abs = fs.toAbs(
+        context.workingDirectory || '/workspace',
+        String(parameters.path),
+      );
+      const content = await fs.readFile(abs);
+      return { success: true, content };
+    } catch (e: any) {
+      return { success: false, content: '', error: 'read_file: ' + String(e?.message ?? e) };
     }
   }
 }
 
-/**
- * Write file tool
- */
-class WriteFileTool extends WebTool {
+class WriteFileTool extends BaseWebTool {
   name = 'write_file';
-  description = 'Write content to a file';
+  description = 'Write text to a file in OPFS. Creates parent dirs as needed.';
   parameters: ToolParameter[] = [
-    {
-      name: 'path',
-      type: 'string',
-      description: 'Path to the file to write',
-      required: true,
-    },
-    {
-      name: 'content',
-      type: 'string',
-      description: 'Content to write to the file',
-      required: true,
-    },
+    { name: 'path', type: 'string', description: 'Path to write', required: true },
+    { name: 'content', type: 'string', description: 'Text content', required: true },
+    { name: 'append', type: 'boolean', description: 'Append instead of overwrite', required: false },
   ];
 
   async execute(
@@ -141,65 +173,24 @@ class WriteFileTool extends WebTool {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     try {
-      const path = parameters['path'] as string;
-      const content = parameters['content'] as string;
-
-      if (!path) {
-        return {
-          success: false,
-          content: '',
-          error: 'Path parameter is required',
-        };
-      }
-
-      if (content === undefined) {
-        return {
-          success: false,
-          content: '',
-          error: 'Content parameter is required',
-        };
-      }
-
-      const fullPath = context.workingDirectory
-        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
-        : path;
-
-      // Ensure directory exists
-      const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
-      if (dirPath) {
-        await opfsAdapter.mkdir(dirPath, { recursive: true });
-      }
-
-      await opfsAdapter.writeFile(fullPath, content);
-
-      return {
-        success: true,
-        content: `Successfully wrote ${content.length} characters to ${path}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        content: '',
-        error: `Failed to write file: ${error instanceof Error ? error.message : String(error)}`,
-      };
+      const fs = await getFs();
+      const abs = fs.toAbs(
+        context.workingDirectory || '/workspace',
+        String(parameters.path),
+      );
+      await fs.writeFile(abs, String(parameters.content ?? ''), Boolean(parameters.append));
+      return { success: true, content: `wrote ${abs}` };
+    } catch (e: any) {
+      return { success: false, content: '', error: 'write_file: ' + String(e?.message ?? e) };
     }
   }
 }
 
-/**
- * List directory tool
- */
-class ListDirectoryTool extends WebTool {
-  name = 'list_directory';
-  description = 'List files and directories in a given path';
+class ListDirectoryTool extends BaseWebTool {
+  name = 'list_dir';
+  description = 'List directory entries at a path.';
   parameters: ToolParameter[] = [
-    {
-      name: 'path',
-      type: 'string',
-      description:
-        'Path to the directory to list (defaults to current directory)',
-      required: false,
-    },
+    { name: 'path', type: 'string', description: 'Directory path (default: .)', required: false },
   ];
 
   async execute(
@@ -207,252 +198,87 @@ class ListDirectoryTool extends WebTool {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     try {
-      const path = (parameters['path'] as string) || '.';
-      const fullPath = context.workingDirectory
-        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
-        : path;
-
-      const files = await opfsAdapter.readdir(fullPath);
-      const fileList = files.join('\n');
-
-      return {
-        success: true,
-        content: `Directory listing for ${path}:\n\n${fileList}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        content: '',
-        error: `Failed to list directory: ${error instanceof Error ? error.message : String(error)}`,
-      };
+      const fs = await getFs();
+      const abs = fs.toAbs(
+        context.workingDirectory || '/workspace',
+        String(parameters.path ?? '.'),
+      );
+      const items = await fs.listDir(abs);
+      const content = items
+        .map((i) => `${i.kind === 'directory' ? '[DIR]' : '[FILE]'} ${i.name}`)
+        .join('\n');
+      return { success: true, content };
+    } catch (e: any) {
+      return { success: false, content: '', error: 'list_dir: ' + String(e?.message ?? e) };
     }
   }
 }
 
-/**
- * Create directory tool
- */
-class CreateDirectoryTool extends WebTool {
-  name = 'create_directory';
-  description = 'Create a directory and any necessary parent directories';
+class GrepTool extends BaseWebTool {
+  name = 'grep';
+  description = 'Search files for a pattern. Supports -i, -n, -r, -l, -E, --max-count=k.';
   parameters: ToolParameter[] = [
-    {
-      name: 'path',
-      type: 'string',
-      description: 'Path to the directory to create',
-      required: true,
-    },
+    { name: 'args', type: 'string', description: 'Space-separated args: -n PATTERN FILE...', required: true },
   ];
 
   async execute(
     parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    try {
-      const path = parameters['path'] as string;
-      if (!path) {
-        return {
-          success: false,
-          content: '',
-          error: 'Path parameter is required',
-        };
-      }
-
-      const fullPath = context.workingDirectory
-        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
-        : path;
-
-      await opfsAdapter.mkdir(fullPath, { recursive: true });
-
-      return {
-        success: true,
-        content: `Successfully created directory: ${path}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        content: '',
-        error: `Failed to create directory: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
+    const args = String(parameters.args ?? '').trim();
+    const argv = args ? args.split(/\s+/) : [];
+    return invokeCmd(cmd_grep, argv, context);
   }
 }
 
-/**
- * Delete file tool
- */
-class DeleteFileTool extends WebTool {
-  name = 'delete_file';
-  description = 'Delete a file';
+class HeadTool extends BaseWebTool {
+  name = 'head';
+  description = 'Output the first N lines of a file (default 10). Supports -n N.';
   parameters: ToolParameter[] = [
-    {
-      name: 'path',
-      type: 'string',
-      description: 'Path to the file to delete',
-      required: true,
-    },
+    { name: 'args', type: 'string', description: 'e.g. -n 20 path/to/file', required: true },
   ];
 
   async execute(
     parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    try {
-      const path = parameters['path'] as string;
-      if (!path) {
-        return {
-          success: false,
-          content: '',
-          error: 'Path parameter is required',
-        };
-      }
-
-      const fullPath = context.workingDirectory
-        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
-        : path;
-
-      // Check if it's a file
-      const stat = await opfsAdapter.stat(fullPath);
-      if (stat.isDirectory()) {
-        return {
-          success: false,
-          content: '',
-          error: `${path} is a directory. Cannot delete directories with delete_file.`,
-        };
-      }
-
-      await opfsAdapter.unlink(fullPath);
-
-      return {
-        success: true,
-        content: `Successfully deleted file: ${path}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        content: '',
-        error: `Failed to delete file: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
+    const argv = String(parameters.args ?? '').split(/\s+/);
+    return invokeCmd(cmd_head, argv, context);
   }
 }
 
-/**
- * Delete directory tool
- */
-class DeleteDirectoryTool extends WebTool {
-  name = 'delete_directory';
-  description = 'Delete a directory (must be empty)';
+class TailTool extends BaseWebTool {
+  name = 'tail';
+  description = 'Output the last N lines of a file (default 10). Supports -n N.';
   parameters: ToolParameter[] = [
-    {
-      name: 'path',
-      type: 'string',
-      description: 'Path to the directory to delete',
-      required: true,
-    },
+    { name: 'args', type: 'string', description: 'e.g. -n 50 logfile.txt', required: true },
   ];
 
   async execute(
     parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    try {
-      const path = parameters['path'] as string;
-      if (!path) {
-        return {
-          success: false,
-          content: '',
-          error: 'Path parameter is required',
-        };
-      }
-
-      const fullPath = context.workingDirectory
-        ? `${context.workingDirectory}/${path}`.replace(/\/+/g, '/')
-        : path;
-
-      // Check if it's a directory
-      const stat = await opfsAdapter.stat(fullPath);
-      if (stat.isFile()) {
-        return {
-          success: false,
-          content: '',
-          error: `${path} is a file. Cannot delete files with delete_directory.`,
-        };
-      }
-
-      await opfsAdapter.rmdir(fullPath, { recursive: false });
-
-      return {
-        success: true,
-        content: `Successfully deleted directory: ${path}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        content: '',
-        error: `Failed to delete directory: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
+    const argv = String(parameters.args ?? '').split(/\s+/);
+    return invokeCmd(cmd_tail, argv, context);
   }
 }
-class GitStatusTool extends WebTool {
-  name = 'git_status';
-  description = 'Get the current git status of the repository';
-  parameters: ToolParameter[] = [];
+
+class SedTool extends BaseWebTool {
+  name = 'sed_replace';
+  description = "sed-style substitution. Usage: -i 's/pat/repl/flags' file...";
+  parameters: ToolParameter[] = [
+    { name: 'args', type: 'string', description: "e.g. -i 's/foo/bar/g' file.txt", required: true },
+  ];
 
   async execute(
-    _parameters: Record<string, unknown>,
+    parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    try {
-      const status = await gitService.status(context.workingDirectory);
-
-      let content = 'Git Status:\n\n';
-
-      const modified = status.filter((s) => s.status === 'modified');
-      const untracked = status.filter((s) => s.status === 'untracked');
-      const staged = status.filter((s) => s.status === 'added');
-
-      if (modified.length > 0) {
-        content += 'Modified files:\n';
-        modified.forEach((item) => (content += `  M ${item.file}\n`));
-      }
-
-      if (untracked.length > 0) {
-        content += 'Untracked files:\n';
-        untracked.forEach((item) => (content += `  ?? ${item.file}\n`));
-      }
-
-      if (staged.length > 0) {
-        content += 'Staged files:\n';
-        staged.forEach((item) => (content += `  A ${item.file}\n`));
-      }
-
-      if (
-        modified.length === 0 &&
-        untracked.length === 0 &&
-        staged.length === 0
-      ) {
-        content += 'Working tree clean';
-      }
-
-      return {
-        success: true,
-        content,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        content: '',
-        error: `Failed to get git status: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
+    const argv = String(parameters.args ?? '').split(/\s+/);
+    return invokeCmd(cmd_sed, argv, context);
   }
 }
 
-/**
- * Web tool registry and executor
- */
 export class WebToolRegistry {
   private tools = new Map<string, WebTool>();
 
@@ -464,10 +290,11 @@ export class WebToolRegistry {
     this.registerTool(new ReadFileTool());
     this.registerTool(new WriteFileTool());
     this.registerTool(new ListDirectoryTool());
-    this.registerTool(new CreateDirectoryTool());
-    this.registerTool(new DeleteFileTool());
-    this.registerTool(new DeleteDirectoryTool());
-    this.registerTool(new GitStatusTool());
+    this.registerTool(new GrepTool());
+    this.registerTool(new HeadTool());
+    this.registerTool(new TailTool());
+    this.registerTool(new SedTool());
+    this.registerTool(new BashTool());
   }
 
   registerTool(tool: WebTool): void {
@@ -483,7 +310,6 @@ export class WebToolRegistry {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     const tool = this.tools.get(toolCall.name);
-
     if (!tool) {
       return {
         success: false,
@@ -491,7 +317,6 @@ export class WebToolRegistry {
         error: `Unknown tool: ${toolCall.name}`,
       };
     }
-
     try {
       return await tool.execute(toolCall.parameters, context);
     } catch (error) {
@@ -508,5 +333,5 @@ export class WebToolRegistry {
   }
 }
 
-// Export singleton instance
 export const webToolRegistry = new WebToolRegistry();
+
