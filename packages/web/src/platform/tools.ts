@@ -133,7 +133,7 @@ class BashTool extends BaseWebTool {
         commandRegistry,
         context.workingDirectory || '/workspace',
       );
-      const res = await runner.exec(String(parameters.command ?? ''));
+      const res = await runner.exec(String(parameters['command'] ?? ''));
       context.workingDirectory = runner.getCwd();
       return asToolResp(res);
     } catch (e: unknown) {
@@ -162,7 +162,7 @@ class ReadFileTool extends BaseWebTool {
       const fs = await getFs();
       const abs = fs.toAbs(
         context.workingDirectory || '/workspace',
-        String(parameters.path),
+        String(parameters['path']),
       );
       const content = await fs.readFile(abs);
       return { success: true, content };
@@ -208,12 +208,12 @@ class WriteFileTool extends BaseWebTool {
       const fs = await getFs();
       const abs = fs.toAbs(
         context.workingDirectory || '/workspace',
-        String(parameters.path),
+        String(parameters['path']),
       );
       await fs.writeFile(
         abs,
-        String(parameters.content ?? ''),
-        Boolean(parameters.append),
+        String(parameters['content'] ?? ''),
+        Boolean(parameters['append']),
       );
       return { success: true, content: `wrote ${abs}` };
     } catch (e: unknown) {
@@ -246,7 +246,7 @@ class ListDirectoryTool extends BaseWebTool {
       const fs = await getFs();
       const abs = fs.toAbs(
         context.workingDirectory || '/workspace',
-        String(parameters.path ?? '.'),
+        String(parameters['path'] ?? '.'),
       );
       const items = await fs.listDir(abs);
       const content = items
@@ -280,7 +280,7 @@ class GrepTool extends BaseWebTool {
     parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    const args = String(parameters.args ?? '').trim();
+    const args = String(parameters['args'] ?? '').trim();
     const argv = args ? args.split(/\s+/) : [];
     return invokeCmd(cmd_grep, argv, context);
   }
@@ -303,7 +303,7 @@ class HeadTool extends BaseWebTool {
     parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    const argv = String(parameters.args ?? '').split(/\s+/);
+    const argv = String(parameters['args'] ?? '').split(/\s+/);
     return invokeCmd(cmd_head, argv, context);
   }
 }
@@ -325,7 +325,7 @@ class TailTool extends BaseWebTool {
     parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    const argv = String(parameters.args ?? '').split(/\s+/);
+    const argv = String(parameters['args'] ?? '').split(/\s+/);
     return invokeCmd(cmd_tail, argv, context);
   }
 }
@@ -346,7 +346,7 @@ class SedTool extends BaseWebTool {
     parameters: Record<string, unknown>,
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
-    const argv = String(parameters.args ?? '').split(/\s+/);
+    const argv = String(parameters['args'] ?? '').split(/\s+/);
     return invokeCmd(cmd_sed, argv, context);
   }
 }

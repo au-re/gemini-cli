@@ -4,24 +4,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WorkspaceContext } from '@google/gemini-cli-core';
+// Define a minimal workspace context interface for web use
+export interface WebWorkspaceContextInterface {
+  resolvePath(relativePath: string): string;
+  relativizePathToWorkspace(absolutePath: string): string;
+  isInWorkspace(filePath: string): boolean;
+  getCurrentWorkspace(): string;
+  initializeWorkspace(rootPath?: string): Promise<void>;
+}
 
 /**
  * Web-compatible WorkspaceContext implementation
+ * This provides the minimal interface needed for web tools
  */
-export class WebWorkspaceContext implements WorkspaceContext {
+export class WebWorkspaceContext implements WebWorkspaceContextInterface {
   private _workingDirectory = '/workspace';
 
   constructor(initialWorkingDirectory = '/workspace') {
     this._workingDirectory = initialWorkingDirectory;
-  }
-
-  getWorkingDirectory(): string {
-    return this._workingDirectory;
-  }
-
-  setWorkingDirectory(directory: string): void {
-    this._workingDirectory = directory;
   }
 
   resolvePath(relativePath: string): string {
@@ -44,7 +44,6 @@ export class WebWorkspaceContext implements WorkspaceContext {
     return resolved.startsWith(this._workingDirectory);
   }
 
-  // Web-specific methods
   getCurrentWorkspace(): string {
     return this._workingDirectory;
   }

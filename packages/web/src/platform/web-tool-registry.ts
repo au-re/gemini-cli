@@ -11,6 +11,7 @@ import {
   BaseToolInvocation,
   ToolResult,
   ToolLocation,
+  WorkspaceContext,
 } from '@google/gemini-cli-core';
 import { WebConfig } from './web-config.js';
 import { WebFileSystemService } from './web-filesystem-service.js';
@@ -352,15 +353,8 @@ export function createWebToolRegistry(
     getMcpServers: () => config.getMcpServers(),
     getMcpServerCommand: () => config.getMcpServerCommand(),
     getPromptRegistry: () => config.getPromptRegistry(),
-    getWorkspaceContext: () => config.getWorkspaceContext(),
-  } as Pick<
-    Config,
-    | 'getDebugMode'
-    | 'getMcpServers'
-    | 'getMcpServerCommand'
-    | 'getPromptRegistry'
-    | 'getWorkspaceContext'
-  > & { getToolCallCommand?: () => string };
+    getWorkspaceContext: () => workspaceContext as unknown as WorkspaceContext,
+  } as unknown as Config;
 
   const toolRegistry = new ToolRegistry(mockConfig);
 

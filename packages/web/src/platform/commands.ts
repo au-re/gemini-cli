@@ -77,7 +77,8 @@ export const cmd_cp: CmdHandler = async (argv, { fs, cwd }) => {
   const paths = argv.filter((a) => !a.startsWith('-'));
   if (paths.length < 2) return err('cp: missing file operand\n');
   const dest = fs.toAbs(cwd, paths.pop()!);
-  await fs.ensureDir(fs.existsDir(dest) ? dest : fs.dirname(dest));
+  const destIsDir = await fs.existsDir(dest);
+  await fs.ensureDir(destIsDir ? dest : fs.dirname(dest));
   for (const srcRel of paths) {
     const src = fs.toAbs(cwd, srcRel);
     const kind = await fs.existsDirOrFile(src);
@@ -87,7 +88,7 @@ export const cmd_cp: CmdHandler = async (argv, { fs, cwd }) => {
       const target = fs.join(dest, fs.basename(src));
       await fs.copyDir(src, target);
     } else if (kind === 'file') {
-      const target = fs.existsDir(dest)
+      const target = destIsDir
         ? fs.join(dest, fs.basename(src))
         : dest;
       await fs.copyFile(src, target);
@@ -99,10 +100,11 @@ export const cmd_cp: CmdHandler = async (argv, { fs, cwd }) => {
 export const cmd_mv: CmdHandler = async (argv, { fs, cwd }) => {
   if (argv.length < 2) return err('mv: missing file operand\n');
   const dest = fs.toAbs(cwd, argv.pop()!);
-  await fs.ensureDir(fs.existsDir(dest) ? dest : fs.dirname(dest));
+  const destIsDir = await fs.existsDir(dest);
+  await fs.ensureDir(destIsDir ? dest : fs.dirname(dest));
   for (const srcRel of argv) {
     const src = fs.toAbs(cwd, srcRel);
-    const target = fs.existsDir(dest) ? fs.join(dest, fs.basename(src)) : dest;
+    const target = destIsDir ? fs.join(dest, fs.basename(src)) : dest;
     await fs.move(src, target);
   }
   return ok();
