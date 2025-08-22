@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Opfs } from './opfs.js';
+import { opfsAdapter } from './opfs-fs.js';
 import { BashRunner } from './bash-runner.js';
 import {
   cmd_grep,
@@ -75,11 +75,59 @@ abstract class BaseWebTool implements WebTool {
   }
 }
 
-let fsPromise: Promise<Opfs> | null = null;
-const getFs = () => {
-  if (!fsPromise) fsPromise = Opfs.create();
-  return fsPromise;
-};
+// Create a simple filesystem adapter for the commands
+interface CmdFileSystem {
+  readFile(path: string): Promise<string>;
+  writeFile(path: string, content: string, append?: boolean): Promise<void>;
+  listDir(path: string): Promise<{ name: string; kind: 'file' | 'directory' }[]>;
+  toAbs(workingDir: string, relativePath: string): string;
+}
+
+class OpfsCmdAdapter implements CmdFileSystem {
+  async readFile(path: string): Promise<string> {
+    const result = await opfsAdapter.readFile(path, { encoding: 'utf8' });
+    return typeof result === 'string' ? result : new TextDecoder().decode(result);
+  }
+
+  async writeFile(path: string, content: string, append?: boolean): Promise<void> {
+    if (append) {
+      try {
+        const existing = await this.readFile(path);
+        await opfsAdapter.writeFile(path, existing + content);
+      } catch {
+        // File doesn't exist, just write
+        await opfsAdapter.writeFile(path, content);
+      }
+    } else {
+      await opfsAdapter.writeFile(path, content);
+    }
+  }
+
+  async listDir(path: string): Promise<{ name: string; kind: 'file' | 'directory' }[]> {
+    const files = await opfsAdapter.readdir(path);
+    const items = [];
+    for (const file of files) {
+      try {
+        const stats = await opfsAdapter.stat(`${path}/${file}`);
+        items.push({
+          name: file,
+          kind: stats.isDirectory() ? 'directory' : 'file' as 'file' | 'directory'
+        });
+      } catch {
+        // If we can't stat, assume it's a file
+        items.push({ name: file, kind: 'file' as const });
+      }
+    }
+    return items;
+  }
+
+  toAbs(workingDir: string, relativePath: string): string {
+    if (relativePath.startsWith('/')) return relativePath;
+    return `${workingDir}/${relativePath}`.replace(/\/+/g, '/');
+  }
+}
+
+const cmdFs = new OpfsCmdAdapter();
 const commandRegistry = defaultCommandRegistry();
 
 const asToolResp = (res: ExecResult): ToolResult =>
@@ -93,9 +141,8 @@ const invokeCmd = async (
   context: ToolExecutionContext,
 ): Promise<ToolResult> => {
   try {
-    const fs = await getFs();
     const res = await handler(argv, {
-      fs,
+      fs: cmdFs as any, // Cast to match expected interface
       cwd: context.workingDirectory || '/workspace',
       setCwd: () => {},
     });
@@ -123,8 +170,7 @@ class BashTool extends BaseWebTool {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     try {
-      const fs = await getFs();
-      const runner = new BashRunner(fs, commandRegistry, context.workingDirectory || '/workspace');
+      const runner = new BashRunner(cmdFs as any, commandRegistry, context.workingDirectory || '/workspace');
       const res = await runner.exec(String(parameters.command ?? ''));
       context.workingDirectory = runner.getCwd();
       return asToolResp(res);
@@ -146,12 +192,11 @@ class ReadFileTool extends BaseWebTool {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     try {
-      const fs = await getFs();
-      const abs = fs.toAbs(
+      const abs = cmdFs.toAbs(
         context.workingDirectory || '/workspace',
         String(parameters.path),
       );
-      const content = await fs.readFile(abs);
+      const content = await cmdFs.readFile(abs);
       return { success: true, content };
     } catch (e: any) {
       return { success: false, content: '', error: 'read_file: ' + String(e?.message ?? e) };
@@ -173,12 +218,18 @@ class WriteFileTool extends BaseWebTool {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     try {
-      const fs = await getFs();
-      const abs = fs.toAbs(
+      const abs = cmdFs.toAbs(
         context.workingDirectory || '/workspace',
         String(parameters.path),
       );
-      await fs.writeFile(abs, String(parameters.content ?? ''), Boolean(parameters.append));
+      
+      // Ensure parent directory exists
+      const parentPath = abs.substring(0, abs.lastIndexOf('/'));
+      if (parentPath && parentPath !== '/workspace') {
+        await opfsAdapter.mkdir(parentPath, { recursive: true });
+      }
+      
+      await cmdFs.writeFile(abs, String(parameters.content ?? ''), Boolean(parameters.append));
       return { success: true, content: `wrote ${abs}` };
     } catch (e: any) {
       return { success: false, content: '', error: 'write_file: ' + String(e?.message ?? e) };
@@ -198,12 +249,11 @@ class ListDirectoryTool extends BaseWebTool {
     context: ToolExecutionContext,
   ): Promise<ToolResult> {
     try {
-      const fs = await getFs();
-      const abs = fs.toAbs(
+      const abs = cmdFs.toAbs(
         context.workingDirectory || '/workspace',
         String(parameters.path ?? '.'),
       );
-      const items = await fs.listDir(abs);
+      const items = await cmdFs.listDir(abs);
       const content = items
         .map((i) => `${i.kind === 'directory' ? '[DIR]' : '[FILE]'} ${i.name}`)
         .join('\n');

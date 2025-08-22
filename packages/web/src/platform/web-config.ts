@@ -5,64 +5,50 @@
  */
 
 import {
-  Config,
   ApprovalMode,
   AccessibilitySettings,
   TelemetrySettings,
   AuthType,
   ContentGeneratorConfig,
   createContentGeneratorConfig,
-  MCPOAuthConfig,
   DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
-  ToolRegistry,
-  PromptRegistry,
 } from '@google/gemini-cli-core';
 import { WebStorage } from './web-storage.js';
 import { WebFileSystemService } from './web-filesystem-service.js';
 import { WebWorkspaceContext } from './web-workspace-context.js';
-import { createWebToolRegistry } from './web-tool-registry.js';
 
 /**
- * Web-compatible configuration for Gemini CLI that extends the core Config
+ * Web-compatible configuration for Gemini CLI
+ * Uses composition to provide core Config compatibility without full inheritance
  */
-export class WebConfig extends Config {
-  private webStorage: WebStorage;
-  private webFileSystemService: WebFileSystemService;
-  private webWorkspaceContext: WebWorkspaceContext;
+export class WebConfig {
+  private storage: WebStorage;
+  private fileSystemService: WebFileSystemService;
+  private workspaceContext: WebWorkspaceContext;
+
+  // Web-specific configuration
   private webApiKey: string | null = null;
   private webModel = DEFAULT_GEMINI_FLASH_MODEL;
+  private webApprovalMode = ApprovalMode.DEFAULT;
+  private webAccessibility: AccessibilitySettings = { disableLoadingPhrases: false };
+  private webTelemetry: TelemetrySettings = { enabled: false };
 
-  constructor() {
-    // Initialize with web-specific implementations
-    super();
-    
-    this.webStorage = new WebStorage();
-    this.webFileSystemService = new WebFileSystemService();
-    this.webWorkspaceContext = new WebWorkspaceContext();
-    
-    // Override the core Config's file system service with our web implementation
-    this.setFileSystemService(this.webFileSystemService);
+  constructor(
+    storage?: WebStorage,
+    fileSystemService?: WebFileSystemService,
+    workspaceContext?: WebWorkspaceContext,
+  ) {
+    this.storage = storage || new WebStorage();
+    this.fileSystemService = fileSystemService || new WebFileSystemService();
+    this.workspaceContext = workspaceContext || new WebWorkspaceContext();
   }
 
   /**
-   * Initialize the web config by loading stored settings and setting up tools
+   * Initialize the web config by loading stored settings
    */
   async initialize(): Promise<void> {
     await this.loadWebSettings();
-    await this.setupWebTools();
-  }
-
-  /**
-   * Setup web-compatible tools
-   */
-  private async setupWebTools(): Promise<void> {
-    const toolRegistry = createWebToolRegistry(
-      this as any, // Cast to avoid type issues with the mock
-      this.webFileSystemService,
-      this.webWorkspaceContext,
-    );
-    this.setToolRegistry(toolRegistry);
   }
 
   /**
@@ -70,7 +56,7 @@ export class WebConfig extends Config {
    */
   private async loadWebSettings(): Promise<void> {
     try {
-      const settings = await this.webStorage.get<{
+      const settings = await this.storage.get<{
         apiKey?: string;
         model?: string;
         approvalMode?: ApprovalMode;
@@ -85,7 +71,15 @@ export class WebConfig extends Config {
         if (settings.model) {
           this.webModel = settings.model;
         }
-        // Set other config values as needed
+        if (settings.approvalMode) {
+          this.webApprovalMode = settings.approvalMode;
+        }
+        if (settings.accessibility) {
+          this.webAccessibility = { ...this.webAccessibility, ...settings.accessibility };
+        }
+        if (settings.telemetryEnabled !== undefined) {
+          this.webTelemetry.enabled = settings.telemetryEnabled;
+        }
       }
     } catch (error) {
       console.warn('Failed to load web settings:', error);
@@ -100,17 +94,21 @@ export class WebConfig extends Config {
       const settings = {
         apiKey: this.webApiKey,
         model: this.webModel,
+        approvalMode: this.webApprovalMode,
+        telemetryEnabled: this.webTelemetry.enabled,
+        accessibility: this.webAccessibility,
         updatedAt: new Date().toISOString(),
       };
 
-      await this.webStorage.set('config', settings);
+      await this.storage.set('config', settings);
     } catch (error) {
       console.warn('Failed to save web settings:', error);
     }
   }
 
-  // Override core Config methods for web compatibility
-  override getContentGeneratorConfig(): ContentGeneratorConfig {
+  // Core configuration methods
+
+  getContentGeneratorConfig(): ContentGeneratorConfig {
     if (!this.webApiKey) {
       throw new Error('API key not configured');
     }
@@ -121,33 +119,13 @@ export class WebConfig extends Config {
     });
   }
 
-  override getModel(): string {
+  getModel(): string {
     return this.webModel;
   }
 
-  override setModel(model: string): void {
+  setModel(model: string): void {
     this.webModel = model;
     this.saveWebSettings().catch(console.warn);
-  }
-
-  override getTargetDir(): string {
-    return this.webWorkspaceContext.getWorkingDirectory();
-  }
-
-  override getWorkingDir(): string {
-    return this.webWorkspaceContext.getWorkingDirectory();
-  }
-
-  override getApprovalMode(): ApprovalMode {
-    return ApprovalMode.DEFAULT; // For web, we can default to this
-  }
-
-  override getDebugMode(): boolean {
-    return false; // Disabled by default in web
-  }
-
-  override getTelemetryEnabled(): boolean {
-    return false; // Disabled by default in web
   }
 
   // Web-specific methods
@@ -166,19 +144,65 @@ export class WebConfig extends Config {
 
   async clearWebConfiguration(): Promise<void> {
     this.webApiKey = null;
-    await this.webStorage.delete('config');
+    await this.storage.delete('config');
   }
 
-  getWebFileSystemService(): WebFileSystemService {
-    return this.webFileSystemService;
+  // Service accessors
+  getWorkspaceContext(): WebWorkspaceContext {
+    return this.workspaceContext;
   }
 
-  getWebWorkspaceContext(): WebWorkspaceContext {
-    return this.webWorkspaceContext;
+  getFileSystemService(): WebFileSystemService {
+    return this.fileSystemService;
   }
 
-  getWebStorage(): WebStorage {
-    return this.webStorage;
+  // Settings accessors
+  getTelemetryEnabled(): boolean {
+    return this.webTelemetry.enabled ?? false;
+  }
+
+  getTelemetryLogPromptsEnabled(): boolean {
+    return false; // Disabled in web environment
+  }
+
+  getApprovalMode(): ApprovalMode {
+    return this.webApprovalMode;
+  }
+
+  setApprovalMode(mode: ApprovalMode): void {
+    this.webApprovalMode = mode;
+    this.saveWebSettings().catch(console.warn);
+  }
+
+  getAccessibility(): AccessibilitySettings {
+    return this.webAccessibility;
+  }
+
+  // Core config compatibility methods
+  getDebugMode(): boolean {
+    return false; // Disabled by default in web
+  }
+
+  getWorkingDirectory(): string {
+    return this.workspaceContext.getWorkingDirectory();
+  }
+
+  getTargetDir(): string {
+    return this.workspaceContext.getWorkingDirectory();
+  }
+
+  getWebConfigStatus(): {
+    configured: boolean;
+    hasApiKey: boolean;
+    model: string;
+    workspaceRoot: string;
+  } {
+    return {
+      configured: this.isWebConfigured(),
+      hasApiKey: !!this.webApiKey,
+      model: this.webModel,
+      workspaceRoot: this.workspaceContext.getWorkingDirectory(),
+    };
   }
 
   // Create web-compatible Gemini client config
@@ -193,20 +217,6 @@ export class WebConfig extends Config {
     return {
       apiKey: this.webApiKey,
       model: this.webModel,
-    };
-  }
-
-  getWebConfigStatus(): {
-    configured: boolean;
-    hasApiKey: boolean;
-    model: string;
-    workspaceRoot: string;
-  } {
-    return {
-      configured: this.isWebConfigured(),
-      hasApiKey: !!this.webApiKey,
-      model: this.webModel,
-      workspaceRoot: this.webWorkspaceContext.getWorkingDirectory(),
     };
   }
 }
