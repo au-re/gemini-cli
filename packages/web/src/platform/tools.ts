@@ -104,8 +104,8 @@ const invokeCmd = async (
       setCwd: () => {},
     });
     return asToolResp(res);
-  } catch (e: any) {
-    return { success: false, content: '', error: String(e?.message ?? e) };
+  } catch (e: unknown) {
+    return { success: false, content: '', error: String((e as Error)?.message ?? e) };
   }
 };
 
@@ -136,8 +136,8 @@ class BashTool extends BaseWebTool {
       const res = await runner.exec(String(parameters.command ?? ''));
       context.workingDirectory = runner.getCwd();
       return asToolResp(res);
-    } catch (e: any) {
-      return { success: false, content: '', error: String(e?.message ?? e) };
+    } catch (e: unknown) {
+      return { success: false, content: '', error: String((e as Error)?.message ?? e) };
     }
   }
 }
@@ -166,11 +166,11 @@ class ReadFileTool extends BaseWebTool {
       );
       const content = await fs.readFile(abs);
       return { success: true, content };
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
         success: false,
         content: '',
-        error: 'read_file: ' + String(e?.message ?? e),
+        error: 'read_file: ' + String((e as Error)?.message ?? e),
       };
     }
   }
@@ -216,11 +216,11 @@ class WriteFileTool extends BaseWebTool {
         Boolean(parameters.append),
       );
       return { success: true, content: `wrote ${abs}` };
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
         success: false,
         content: '',
-        error: 'write_file: ' + String(e?.message ?? e),
+        error: 'write_file: ' + String((e as Error)?.message ?? e),
       };
     }
   }
@@ -253,11 +253,11 @@ class ListDirectoryTool extends BaseWebTool {
         .map((i) => `${i.kind === 'directory' ? '[DIR]' : '[FILE]'} ${i.name}`)
         .join('\n');
       return { success: true, content };
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
         success: false,
         content: '',
-        error: 'list_dir: ' + String(e?.message ?? e),
+        error: 'list_dir: ' + String((e as Error)?.message ?? e),
       };
     }
   }

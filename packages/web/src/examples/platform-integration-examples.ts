@@ -16,6 +16,7 @@ import {
   webPlatformAdapter,
   WebPlatformAdapter,
 } from '../platform/index.js';
+import { ApprovalMode } from '@google/gemini-cli-core';
 
 /**
  * Example 1: Basic initialization and configuration
@@ -144,7 +145,7 @@ async function settingsExample() {
 
   // Set configuration options
   config.setModel('gemini-1.5-pro');
-  config.setApprovalMode('autoEdit' as any); // Cast needed for enum
+  config.setApprovalMode(ApprovalMode.AUTO_EDIT);
 
   // Get configuration details
   const configStatus = config.getWebConfigStatus();

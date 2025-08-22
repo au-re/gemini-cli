@@ -642,7 +642,7 @@ To get started:
           const type = stat.isDirectory() ? '[DIR]' : '[FILE]';
           const size = stat.isFile() ? ` (${stat.size} bytes)` : '';
           fileInfos.push(`${type} ${file}${size}`);
-        } catch (error) {
+        } catch (_error) {
           fileInfos.push(`[???] ${file} (error reading stats)`);
         }
       }

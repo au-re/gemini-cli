@@ -11,7 +11,6 @@ import {
   BaseToolInvocation,
   ToolResult,
   ToolLocation,
-  ToolCallConfirmationDetails,
 } from '@google/gemini-cli-core';
 import { WebConfig } from './web-config.js';
 import { WebFileSystemService } from './web-filesystem-service.js';
@@ -52,7 +51,7 @@ class WebReadFileInvocation extends BaseToolInvocation<
     return [{ path: this.params.path, readOnly: true }];
   }
 
-  async execute(signal: AbortSignal): Promise<ToolResult> {
+  async execute(_signal: AbortSignal): Promise<ToolResult> {
     try {
       const resolvedPath = this.workspaceContext.resolvePath(this.params.path);
       const content = (await this.fileSystemService.readFile(
@@ -94,7 +93,7 @@ class WebWriteFileInvocation extends BaseToolInvocation<
     return [{ path: this.params.path, readOnly: false }];
   }
 
-  async execute(signal: AbortSignal): Promise<ToolResult> {
+  async execute(_signal: AbortSignal): Promise<ToolResult> {
     try {
       const resolvedPath = this.workspaceContext.resolvePath(this.params.path);
 
@@ -140,7 +139,7 @@ class WebListDirInvocation extends BaseToolInvocation<
     return `List directory: ${this.params.path || 'current directory'}`;
   }
 
-  async execute(signal: AbortSignal): Promise<ToolResult> {
+  async execute(_signal: AbortSignal): Promise<ToolResult> {
     try {
       const targetPath = this.params.path || '.';
       const resolvedPath = this.workspaceContext.resolvePath(targetPath);
@@ -354,7 +353,14 @@ export function createWebToolRegistry(
     getMcpServerCommand: () => config.getMcpServerCommand(),
     getPromptRegistry: () => config.getPromptRegistry(),
     getWorkspaceContext: () => config.getWorkspaceContext(),
-  } as any;
+  } as Pick<
+    Config,
+    | 'getDebugMode'
+    | 'getMcpServers'
+    | 'getMcpServerCommand'
+    | 'getPromptRegistry'
+    | 'getWorkspaceContext'
+  > & { getToolCallCommand?: () => string };
 
   const toolRegistry = new ToolRegistry(mockConfig);
 

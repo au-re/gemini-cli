@@ -160,9 +160,9 @@ export class WebPlatformAdapter {
     success: boolean;
     error?: string;
     details?: {
-      platform: any;
-      config: any;
-      gemini: any;
+      platform: unknown;
+      config: unknown;
+      gemini: unknown;
     };
   }> {
     this.ensureInitialized();
@@ -205,10 +205,10 @@ export class WebPlatformAdapter {
    */
   getStatus(): {
     initialized: boolean;
-    platform: any;
-    config: any;
-    workspace: any;
-    gemini: any;
+    platform: unknown;
+    config: unknown;
+    workspace: unknown;
+    gemini: unknown;
   } {
     if (!this.initialized) {
       return {

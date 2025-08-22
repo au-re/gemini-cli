@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WebConfig } from '../platform/web-config.js';
 import { WebStorage } from '../platform/web-storage.js';
 import { WebFileSystemService } from '../platform/web-filesystem-service.js';

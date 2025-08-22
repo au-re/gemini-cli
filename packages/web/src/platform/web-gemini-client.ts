@@ -80,7 +80,7 @@ export class WebGeminiClient {
     try {
       const contents = [{ role: 'user' as const, parts: [{ text: prompt }] }];
 
-      const config: any = {};
+      const config: { tools?: unknown[] } = {};
 
       // Add tools if enabled
       if (context?.enableTools) {
@@ -343,7 +343,7 @@ export class WebGeminiClient {
    */
   private async handleToolResults(
     originalContents: Array<{ role: string; parts: Array<{ text: string }> }>,
-    originalConfig: any,
+    originalConfig: { tools?: unknown[] },
     toolCalls: Array<{ name: string; parameters: Record<string, unknown> }>,
     toolResults: ToolResult[],
   ): Promise<{ text?: string; candidates?: Array<{ finishReason?: string }> }> {
