@@ -79,6 +79,7 @@
     "src/ui/hooks/vim.test.ts",
     "src/ui/utils/computeStats.test.ts",
     "src/ui/themes/theme.test.ts",
+    "src/ui/hooks/useGitBranchName.test.ts",
     "src/validateNonInterActiveAuth.test.ts",
     "src/services/prompt-processors/shellProcessor.test.ts"
   ],

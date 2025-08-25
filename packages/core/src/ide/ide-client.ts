@@ -406,7 +406,8 @@ export class IdeClient {
       return new Response(response.body as ReadableStream<unknown> | null, {
         status: response.status,
         statusText: response.statusText,
-        headers: response.headers,
+        // Cast to standard Headers to satisfy DOM typings
+        headers: new Headers(response.headers as unknown as HeadersInit),
       });
     };
   }

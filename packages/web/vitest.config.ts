@@ -5,6 +5,10 @@
  */
 
 import { defineConfig } from 'vitest/config';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
@@ -16,5 +20,34 @@ export default defineConfig({
       exclude: ['node_modules/', 'dist/', '**/*.d.ts'],
     },
     setupFiles: ['./src/test/setup.ts'],
+  },
+  resolve: {
+    alias: [
+      {
+        find: '@lvce-editor/ripgrep',
+        replacement: path.resolve(__dirname, 'src/test/stubs/ripgrep.ts'),
+      },
+      {
+        find: 'isomorphic-git/http/web',
+        replacement: path.resolve(
+          __dirname,
+          'src/test/stubs/isomorphic-git-http-web.ts',
+        ),
+      },
+      {
+        find: 'isomorphic-git',
+        replacement: path.resolve(
+          __dirname,
+          'src/test/stubs/isomorphic-git.ts',
+        ),
+      },
+      {
+        find: 'path-browserify',
+        replacement: path.resolve(
+          __dirname,
+          'src/test/stubs/path-browserify.ts',
+        ),
+      },
+    ],
   },
 });

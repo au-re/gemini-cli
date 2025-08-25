@@ -50,7 +50,9 @@ class WebReadFileInvocation extends BaseToolInvocation<
   }
 
   override toolLocations(): ToolLocation[] {
-    return [{ path: this.params.path }];
+    return [
+      { path: this.params.path, readOnly: true } as unknown as ToolLocation,
+    ];
   }
 
   async execute(
