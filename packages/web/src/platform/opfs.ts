@@ -10,14 +10,29 @@ export class Opfs {
 
   static async create(): Promise<Opfs> {
     try {
-      await (navigator.storage as any).persist?.();
+      const storage = navigator.storage as StorageManager & {
+        getDirectory: () => Promise<FileSystemDirectoryHandle>;
+      };
+      await storage.persist?.();
     } catch {
       // ignore
     }
     const fs = new Opfs();
-    fs.root = await (navigator.storage as any).getDirectory();
+    const storage = navigator.storage as StorageManager & {
+      getDirectory: () => Promise<FileSystemDirectoryHandle>;
+    };
+    fs.root = await storage.getDirectory();
     await fs.ensureDir('/workspace');
     return fs;
+  }
+
+  private dirEntries(
+    dh: FileSystemDirectoryHandle,
+  ): AsyncIterableIterator<[string, FileSystemHandle]> {
+    type DirectoryWithEntries = FileSystemDirectoryHandle & {
+      entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
+    };
+    return (dh as DirectoryWithEntries).entries();
   }
 
   async readFile(path: string): Promise<string> {
@@ -27,7 +42,11 @@ export class Opfs {
     return file.text();
   }
 
-  async writeFile(path: string, content: string | ArrayBuffer, append = false): Promise<void> {
+  async writeFile(
+    path: string,
+    content: string | ArrayBuffer,
+    append = false,
+  ): Promise<void> {
     await this.ensureDir(this.dirname(path));
     const { parent, name } = await this.parentAndName(path);
     const fh = await parent.getFileHandle(name, { create: true });
@@ -40,10 +59,12 @@ export class Opfs {
     await ws.close();
   }
 
-  async listDir(path: string): Promise<{ name: string; kind: 'file' | 'directory' }[]> {
+  async listDir(
+    path: string,
+  ): Promise<Array<{ name: string; kind: 'file' | 'directory' }>> {
     const dh = await this.getDir(path);
-    const out: { name: string; kind: 'file' | 'directory' }[] = [];
-    for await (const [name, h] of (dh as any).entries()) {
+    const out: Array<{ name: string; kind: 'file' | 'directory' }> = [];
+    for await (const [name, h] of this.dirEntries(dh)) {
       out.push({ name, kind: h.kind });
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
@@ -74,7 +95,7 @@ export class Opfs {
   async copyDir(src: string, dest: string): Promise<void> {
     await this.ensureDir(dest);
     const sdh = await this.getDir(src);
-    for await (const [name, h] of (sdh as any).entries()) {
+    for await (const [name, h] of this.dirEntries(sdh)) {
       const s = this.join(src, name);
       const d = this.join(dest, name);
       if (h.kind === 'directory') await this.copyDir(s, d);
@@ -143,7 +164,9 @@ export class Opfs {
   }
 
   toAbs(cwd: string, path: string) {
-    return path.startsWith('/') ? this.normalize(path) : this.normalize(this.join(cwd, path));
+    return path.startsWith('/')
+      ? this.normalize(path)
+      : this.normalize(this.join(cwd, path));
   }
 
   parts(p: string): string[] {
@@ -155,18 +178,22 @@ export class Opfs {
     try {
       await this.getDir(path);
       return 'directory';
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     try {
       const { parent, name } = await this.parentAndName(path);
       await parent.getFileHandle(name);
       return 'file';
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     return null;
   }
 
   async *walk(dir: string): AsyncGenerator<string> {
     const dh = await this.getDir(dir);
-    for await (const [name, h] of (dh as any).entries()) {
+    for await (const [name, h] of this.dirEntries(dh)) {
       const path = this.join(dir, name);
       if (h.kind === 'directory') yield* this.walk(path);
       else yield path;
@@ -175,4 +202,3 @@ export class Opfs {
 }
 
 export default Opfs;
-

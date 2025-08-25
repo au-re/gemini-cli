@@ -7,16 +7,12 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-
-export interface TerminalMessage {
-  type: 'info' | 'error' | 'warning' | 'success';
-  text: string;
-  timestamp?: number;
-}
+import { TerminalMessage } from './types.js';
 
 export interface ReadLineOptions {
   prompt?: string;
   password?: boolean;
+  history?: string[];
 }
 
 /**
@@ -29,6 +25,8 @@ export class XtermHost {
   private inputResolver?: (value: string) => void;
   private isWaitingForInput = false;
   private currentPrompt = '';
+  private history: string[] = [];
+  private historyIndex = -1;
 
   constructor(container: HTMLElement) {
     // Initialize terminal with dark theme
@@ -98,6 +96,10 @@ export class XtermHost {
         // Enter
         this.terminal.write('\r\n');
         if (this.inputResolver) {
+          if (this.inputBuffer.trim()) {
+            this.history.push(this.inputBuffer);
+          }
+          this.historyIndex = this.history.length;
           this.inputResolver(this.inputBuffer);
           this.inputResolver = undefined;
           this.isWaitingForInput = false;
@@ -127,12 +129,41 @@ export class XtermHost {
         return;
       }
 
+      // History navigation
+      if (char === '\x1b[A') {
+        // Up arrow
+        if (this.historyIndex > 0) {
+          this.historyIndex--;
+          this.replaceInput(this.history[this.historyIndex]);
+        }
+        return;
+      }
+
+      if (char === '\x1b[B') {
+        // Down arrow
+        if (this.historyIndex < this.history.length - 1) {
+          this.historyIndex++;
+          this.replaceInput(this.history[this.historyIndex]);
+        } else {
+          this.historyIndex = this.history.length;
+          this.replaceInput('');
+        }
+        return;
+      }
+
       // Handle printable characters
       if (char >= ' ' || char === '\t') {
         this.inputBuffer += char;
         this.terminal.write(char);
       }
     });
+  }
+
+  private replaceInput(newInput: string) {
+    const oldLength = this.inputBuffer.length;
+    this.terminal.write('\b \b'.repeat(oldLength));
+    this.inputBuffer = newInput;
+    this.terminal.write(newInput);
   }
 
   /**
@@ -153,20 +184,21 @@ export class XtermHost {
    * Print text to terminal
    */
   print(text: string): void {
-    this.terminal.write(text);
+    this.terminal.write(text.replace(/\n/g, '\r\n'));
   }
 
   /**
    * Print text with newline
    */
   println(text: string): void {
-    this.terminal.write(text + '\r\n');
+    this.print(text + '\r\n');
   }
 
   /**
    * Print colored message
    */
-  printMessage(message: TerminalMessage): void {
+  printMessage(message: TerminalMessage):
+    void {
     const timestamp = message.timestamp
       ? new Date(message.timestamp).toLocaleTimeString()
       : '';
@@ -176,10 +208,7 @@ export class XtermHost {
       case 'info':
         this.print(`\x1b[36m${prefix}ℹ ${message.text}\x1b[0m\r\n`);
         break;
-      case 'success':
-        this.print(`\x1b[32m${prefix}✓ ${message.text}\x1b[0m\r\n`);
-        break;
-      case 'warning':
+      case 'warn':
         this.print(`\x1b[33m${prefix}⚠ ${message.text}\x1b[0m\r\n`);
         break;
       case 'error':
@@ -196,6 +225,10 @@ export class XtermHost {
    * Read a line of input from user
    */
   async readLine(options: ReadLineOptions = {}): Promise<string> {
+    if (options.history) {
+      this.history = [...options.history];
+      this.historyIndex = this.history.length;
+    }
     return new Promise((resolve) => {
       this.currentPrompt = options.prompt || '> ';
       this.terminal.write(this.currentPrompt);

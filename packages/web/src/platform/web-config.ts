@@ -11,22 +11,20 @@
  */
 
 import {
-  ApprovalMode,
   AccessibilitySettings,
-  TelemetrySettings,
+  ApprovalMode,
   AuthType,
   ContentGeneratorConfig,
-  createContentGeneratorConfig,
-  MCPOAuthConfig,
-  DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
+  DEFAULT_GEMINI_FLASH_MODEL,
+  MCPOAuthConfig,
+  sessionId,
+  TelemetrySettings,
   ToolRegistry,
-  PromptRegistry,
 } from '@google/gemini-cli-core';
-import { WebStorage } from './web-storage.js';
 import { WebFileSystemService } from './web-filesystem-service.js';
+import { WebStorage } from './web-storage.js';
 import { WebWorkspaceContext } from './web-workspace-context.js';
-import { sessionId } from '@google/gemini-cli-core';
 
 /**
  * Web-compatible configuration for Gemini CLI
@@ -37,14 +35,16 @@ export class WebConfig {
   private fileSystemService: WebFileSystemService;
   private workspaceContext: WebWorkspaceContext;
   private toolRegistry?: ToolRegistry;
-  private promptRegistry?: PromptRegistry;
+  private promptRegistry?: unknown;
 
   // Web-specific configuration
   private webApiKey: string | null = null;
   private webModel = DEFAULT_GEMINI_FLASH_MODEL;
   private webSessionId = sessionId;
   private webApprovalMode = ApprovalMode.DEFAULT;
-  private webAccessibility: AccessibilitySettings = { disableLoadingPhrases: false };
+  private webAccessibility: AccessibilitySettings = {
+    disableLoadingPhrases: false,
+  };
   private webTelemetry: TelemetrySettings = { enabled: false };
 
   constructor(
@@ -88,7 +88,10 @@ export class WebConfig {
           this.webApprovalMode = settings.approvalMode;
         }
         if (settings.accessibility) {
-          this.webAccessibility = { ...this.webAccessibility, ...settings.accessibility };
+          this.webAccessibility = {
+            ...this.webAccessibility,
+            ...settings.accessibility,
+          };
         }
         if (settings.telemetryEnabled !== undefined) {
           this.webTelemetry.enabled = settings.telemetryEnabled;
@@ -126,10 +129,13 @@ export class WebConfig {
       throw new Error('API key not configured');
     }
 
-    return createContentGeneratorConfig({
-      type: AuthType.API_KEY,
+    // Build a web-friendly ContentGeneratorConfig directly
+    return {
+      model: this.webModel,
       apiKey: this.webApiKey,
-    });
+      authType: AuthType.USE_GEMINI,
+      vertexai: false,
+    };
   }
 
   getModel(): string {
@@ -177,11 +183,11 @@ export class WebConfig {
     this.toolRegistry = registry;
   }
 
-  getPromptRegistry(): PromptRegistry | undefined {
+  getPromptRegistry(): unknown | undefined {
     return this.promptRegistry;
   }
 
-  setPromptRegistry(registry: PromptRegistry): void {
+  setPromptRegistry(registry: unknown): void {
     this.promptRegistry = registry;
   }
 
@@ -208,7 +214,7 @@ export class WebConfig {
   }
 
   // MCP settings (not supported in web initially)
-  getMcpServers(): Record<string, any> | undefined {
+  getMcpServers(): Record<string, unknown> | undefined {
     return undefined;
   }
 
@@ -221,12 +227,12 @@ export class WebConfig {
   }
 
   // Session management
-  getSessionId(): string {
+  getSessionId(): typeof sessionId {
     return this.webSessionId;
   }
 
-  setSessionId(sessionId: string): void {
-    this.webSessionId = sessionId;
+  setSessionId(id: typeof sessionId): void {
+    this.webSessionId = id;
   }
 
   // Memory and embedding settings
@@ -238,7 +244,7 @@ export class WebConfig {
     return '';
   }
 
-  setUserMemory(memory: string): void {
+  setUserMemory(_memory: string): void {
     // Could implement web storage for user memory if needed
   }
 

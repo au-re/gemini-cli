@@ -141,9 +141,18 @@ export class OPFSAdapter implements NodeLikeFS {
       )) as FileSystemFileHandle;
       const writer = await handle.createWritable();
 
-      const bytes =
-        typeof data === 'string' ? new TextEncoder().encode(data) : data;
-      await writer.write(bytes);
+      if (typeof data === 'string') {
+        await writer.write(data);
+      } else {
+        // Write the exact view window as an ArrayBuffer
+        const view = data as Uint8Array; // explicit alias for clarity
+        const ab = view.buffer as unknown as ArrayBuffer;
+        const chunk = ab.slice(
+          view.byteOffset,
+          view.byteOffset + view.byteLength,
+        );
+        await writer.write(chunk);
+      }
       await writer.close();
     } catch (error) {
       throw new Error(`Failed to write file ${path}: ${error}`);
@@ -159,11 +168,7 @@ export class OPFSAdapter implements NodeLikeFS {
       )) as FileSystemDirectoryHandle;
       const entries: string[] = [];
 
-      for await (const [name] of (
-        handle as unknown as {
-          entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
-        }
-      ).entries()) {
+      for await (const [name] of this.dirEntries(handle)) {
         entries.push(name);
       }
 
@@ -302,6 +307,16 @@ export class OPFSAdapter implements NodeLikeFS {
   }> {
     // lstat should behave the same as stat for OPFS (no symlinks)
     return this.stat(path);
+  }
+
+  // Helper to iterate directory entries with proper typing (DOM lib gaps)
+  private dirEntries(
+    dh: FileSystemDirectoryHandle,
+  ): AsyncIterableIterator<[string, FileSystemHandle]> {
+    type DirectoryWithEntries = FileSystemDirectoryHandle & {
+      entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
+    };
+    return (dh as DirectoryWithEntries).entries();
   }
 }
 

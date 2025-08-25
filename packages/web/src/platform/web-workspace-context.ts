@@ -4,12 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WorkspaceContext } from '@google/gemini-cli-core';
-
 /**
  * Web-compatible WorkspaceContext implementation
  */
-export class WebWorkspaceContext implements WorkspaceContext {
+export class WebWorkspaceContext {
   private _workingDirectory = '/workspace';
 
   constructor(initialWorkingDirectory = '/workspace') {

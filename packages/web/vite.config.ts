@@ -23,6 +23,7 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
+    'process.env': {},
   },
   optimizeDeps: {
     include: [
@@ -36,6 +37,9 @@ export default defineConfig({
   resolve: {
     alias: {
       buffer: 'buffer',
+      '@google/gemini-cli-core/dist/src/utils/getPty.js':
+        './src/platform/stubs/getPty.ts',
+      chalk: './src/platform/stubs/chalk.ts',
     },
   },
 });

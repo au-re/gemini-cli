@@ -4,19 +4,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { GeminiChat, ToolRegistry } from '@google/gemini-cli-core';
+import { WebConfig } from './platform/web-config.js';
+import { WebLogger } from './platform/web-logger.js';
+import { createWebToolRegistry } from './platform/web-tool-registry.js';
 import { XtermHost } from './terminal/XtermHost.js';
-import { commandRouter } from './command/Router.js';
-import { geminiService } from './platform/gemini.js';
-import { gitService } from './platform/git.js';
-import { opfsAdapter } from './platform/opfs-fs.js';
 
 /**
  * Main application class
  */
 export class GeminiWebApp {
   private terminal: XtermHost;
-  private workingDirectory = '/workspace';
   private statusElement: HTMLElement;
+  private config: WebConfig;
+  private commandHistory: string[] = [];
+  private chat: GeminiChat;
+  private logger: WebLogger;
+  private toolRegistry: ToolRegistry;
 
   constructor() {
     const terminalContainer = document.getElementById('terminal');
@@ -28,6 +32,19 @@ export class GeminiWebApp {
 
     this.statusElement = statusLeft;
     this.terminal = new XtermHost(terminalContainer);
+    this.config = new WebConfig();
+    this.logger = new WebLogger(this.terminal);
+    this.toolRegistry = createWebToolRegistry(
+      this.config,
+      this.config.getFileSystemService(),
+      this.config.getWorkspaceContext(),
+    );
+    this.config.setToolRegistry(this.toolRegistry);
+    this.chat = new GeminiChat(
+      this.config,
+      this.config.getFileSystemService(),
+      this.logger,
+    );
 
     this.start();
   }
@@ -37,59 +54,30 @@ export class GeminiWebApp {
    */
   private async start(): Promise<void> {
     this.setStatus('Initializing...');
+    await this.config.initialize();
 
-    // Initialize workspace directory
-    try {
-      await opfsAdapter.mkdir(this.workingDirectory, { recursive: true });
-    } catch (error) {
-      console.warn('Failed to create workspace directory:', error);
-    }
-
-    // Try to load existing configuration
-    try {
-      await geminiService.loadFromStorage();
-
-      // Also load Git token if available
-      try {
-        const settingsData = (await opfsAdapter.readFile(
-          '/workspace/.gemini/settings.json',
-          { encoding: 'utf8' },
-        )) as string;
-        const settings = JSON.parse(settingsData);
-        if (settings.gitToken) {
-          gitService.setAuthToken(settings.gitToken);
-        }
-      } catch {
-        // Settings don't exist or don't have git token, that's OK
-      }
-
-      const geminiConfigured = geminiService.isConfigured();
-      const gitConfigured = !!gitService.getAuthToken();
-
-      if (geminiConfigured && gitConfigured) {
-        this.setStatus('Ready (Gemini + Git configured)');
-      } else if (geminiConfigured) {
-        this.setStatus(
-          'Ready (Gemini configured, configure Git token for private repos)',
-        );
-      } else if (gitConfigured) {
-        this.setStatus(
-          'Ready (Git configured, configure Gemini API key for AI features)',
-        );
-      } else {
-        this.setStatus('Ready (Configure API keys to get started)');
-      }
-    } catch (error) {
-      console.warn('Failed to load configuration:', error);
-      this.setStatus('Ready (Configure API keys to get started)');
+    if (!this.config.isWebConfigured()) {
+      this.terminal.println(
+        'Welcome to Gemini CLI! Please provide your API key to get started.',
+      );
+      const apiKey = await this.terminal.readLine({ prompt: 'API Key: ' });
+      await this.config.setWebApiKey(apiKey);
+      this.terminal.println('API key saved.');
     }
 
     this.terminal.focus();
+    this.setStatus('Ready');
 
     // Main input loop
     while (true) {
       try {
-        const input = await this.terminal.readLine({ prompt: '> ' });
+        const input = await this.terminal.readLine({
+          prompt: '> ',
+          history: this.commandHistory,
+        });
+        if (input.trim()) {
+          this.commandHistory.push(input);
+        }
         await this.processInput(input);
       } catch (error) {
         this.terminal.printMessage({
@@ -106,54 +94,20 @@ export class GeminiWebApp {
    */
   private async processInput(input: string): Promise<void> {
     if (!input.trim()) return;
-
+    this.setStatus('Thinking...');
     try {
-      const result = await commandRouter.route(input, {
-        terminal: this.terminal,
-        workingDirectory: this.workingDirectory,
-        setStatus: (message: string) => this.setStatus(message),
-      });
-
-      switch (result.type) {
-        case 'message':
-          if (result.content) {
-            this.terminal.println(result.content);
-          }
-          break;
-
-        case 'prompt':
-          // For backward compatibility - content is already shown
-          if (result.content) {
-            this.terminal.println(result.content);
-          }
-          break;
-
-        case 'error':
-          this.terminal.printMessage({
-            type: 'error',
-            text: result.content,
-            timestamp: Date.now(),
-          });
-          break;
-
-        default:
-          // Handle any unexpected result types
-          this.terminal.printMessage({
-            type: 'error',
-            text: `Unknown result type: ${(result as { type: string }).type}`,
-            timestamp: Date.now(),
-          });
-          break;
+      const result = await this.chat.chat(input);
+      let responseText = '';
+      for await (const chunk of result.chunks) {
+        const chunkText = chunk.text;
+        responseText += chunkText;
+        this.terminal.print(chunkText);
       }
-    } catch (error) {
-      this.terminal.printMessage({
-        type: 'error',
-        text: `Command failed: ${error}`,
-        timestamp: Date.now(),
-      });
+    } catch (e) {
+      this.logger.error((e as Error).message);
+    } finally {
+      this.setStatus('Ready');
     }
-
-    this.setStatus('Ready');
   }
 
   /**

@@ -12,23 +12,45 @@ import * as path from 'path-browserify';
  * Web-compatible FileSystemService implementation that uses OPFS
  */
 export class WebFileSystemService implements FileSystemService {
-  async readFile(filePath: string, encoding?: BufferEncoding): Promise<string | Buffer> {
+  async readTextFile(filePath: string): Promise<string> {
+    const data = await opfsAdapter.readFile(filePath, { encoding: 'utf8' });
+    return typeof data === 'string' ? data : new TextDecoder().decode(data);
+  }
+
+  async writeTextFile(filePath: string, content: string): Promise<void> {
+    return opfsAdapter.writeFile(filePath, content, { encoding: 'utf8' });
+  }
+
+  async readFile(
+    filePath: string,
+    encoding?: 'utf8' | 'utf-8' | string,
+  ): Promise<string | Uint8Array> {
     return opfsAdapter.readFile(filePath, { encoding: encoding || 'utf8' });
   }
 
-  async writeFile(filePath: string, data: string | Buffer, encoding?: BufferEncoding): Promise<void> {
-    return opfsAdapter.writeFile(filePath, data, encoding);
+  async writeFile(
+    filePath: string,
+    data: string | Uint8Array,
+    encoding?: 'utf8' | 'utf-8' | string,
+  ): Promise<void> {
+    return opfsAdapter.writeFile(filePath, data, { encoding });
   }
 
   async readdir(dirPath: string): Promise<string[]> {
     return opfsAdapter.readdir(dirPath);
   }
 
-  async mkdir(dirPath: string, options?: { recursive?: boolean }): Promise<void> {
+  async mkdir(
+    dirPath: string,
+    options?: { recursive?: boolean },
+  ): Promise<void> {
     return opfsAdapter.mkdir(dirPath, options);
   }
 
-  async rmdir(dirPath: string, options?: { recursive?: boolean }): Promise<void> {
+  async rmdir(
+    dirPath: string,
+    options?: { recursive?: boolean },
+  ): Promise<void> {
     return opfsAdapter.rmdir(dirPath, options);
   }
 
@@ -44,10 +66,10 @@ export class WebFileSystemService implements FileSystemService {
   }> {
     const stats = await opfsAdapter.stat(filePath);
     return {
-      isFile: () => !stats.isDirectory(),
+      isFile: () => stats.isFile(),
       isDirectory: () => stats.isDirectory(),
       size: stats.size,
-      mtime: stats.mtime,
+      mtime: new Date(stats.mtimeMs ?? Date.now()),
     };
   }
 
