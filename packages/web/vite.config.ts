@@ -40,6 +40,8 @@ export default defineConfig({
       '@google/gemini-cli-core/dist/src/utils/getPty.js':
         './src/platform/stubs/getPty.ts',
       chalk: './src/platform/stubs/chalk.ts',
+      'google-auth-library': './src/platform/stubs/google-auth-library.ts',
+      'google-logging-utils': './src/platform/stubs/google-logging-utils.ts',
     },
   },
 });
