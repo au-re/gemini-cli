@@ -4,19 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Storage } from '@google/gemini-cli-core';
+import type { Storage } from '@google/gemini-cli-core';
 import { opfsAdapter } from './opfs-fs.js';
 import * as path from 'path-browserify';
 
 /**
  * Web-compatible Storage implementation using OPFS
  */
-export class WebStorage extends Storage {
+export class WebStorage implements Storage {
   private readonly basePath: string;
+  private readonly targetDir: string;
 
   constructor(basePath = '/workspace/.gemini-cli', targetDir = '/workspace') {
-    super(targetDir);
     this.basePath = basePath;
+    this.targetDir = targetDir;
   }
 
   async get<T>(key: string): Promise<T | null> {
@@ -86,49 +87,51 @@ export class WebStorage extends Storage {
   }
 
   // --- Core Storage interface compatibility ---
-  override getGeminiDir(): string {
+  getGeminiDir(): string {
     return this.basePath;
   }
 
-  override getProjectTempDir(): string {
+  getProjectTempDir(): string {
     const hash = this.hashPath(this.getProjectRoot());
     return path.join(this.getGlobalTempDir(), hash);
   }
 
-  override ensureProjectTempDirExists(): void {
+  ensureProjectTempDirExists(): void {
     // Fire-and-forget async mkdir; interface is sync so we initiate without await
     void opfsAdapter.mkdir(this.getProjectTempDir(), { recursive: true });
   }
 
-  // Inherit getProjectRoot() from base (returns the project root passed to super)
+  getProjectRoot(): string {
+    return this.targetDir;
+  }
 
-  override getHistoryDir(): string {
+  getHistoryDir(): string {
     const historyRoot = path.join(this.getGeminiDir(), 'history');
     const hash = this.hashPath(this.getProjectRoot());
     return path.join(historyRoot, hash);
   }
 
-  override getWorkspaceSettingsPath(): string {
+  getWorkspaceSettingsPath(): string {
     return path.join(this.getGeminiDir(), 'settings.json');
   }
 
-  override getProjectCommandsDir(): string {
+  getProjectCommandsDir(): string {
     return path.join(this.getGeminiDir(), 'commands');
   }
 
-  override getProjectTempCheckpointsDir(): string {
+  getProjectTempCheckpointsDir(): string {
     return path.join(this.getProjectTempDir(), 'checkpoints');
   }
 
-  override getExtensionsDir(): string {
+  getExtensionsDir(): string {
     return path.join(this.getGeminiDir(), 'extensions');
   }
 
-  override getExtensionsConfigPath(): string {
+  getExtensionsConfigPath(): string {
     return path.join(this.getExtensionsDir(), 'gemini-extension.json');
   }
 
-  override getHistoryFilePath(): string {
+  getHistoryFilePath(): string {
     return path.join(this.getProjectTempDir(), 'shell_history');
   }
 

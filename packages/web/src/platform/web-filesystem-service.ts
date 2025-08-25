@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FileSystemService } from '@google/gemini-cli-core';
+import type { FileSystemService } from '@google/gemini-cli-core';
 import { opfsAdapter } from './opfs-fs.js';
 import * as path from 'path-browserify';
 
